@@ -106,6 +106,18 @@ idf.py -p <PUERTO> flash monitor
 
 ---
 
+### Alternativa: con Espressif-IDE (Windows, sin comandos)
+
+1. **Configurar IDF (una vez):** en la pantalla de bienvenida, pulsa **ESP-IDF Manager**. Debe aparecer una versión de ESP-IDF marcada como **activa**. Si la lista está vacía, pulsa *Add ESP-IDF* y apunta a la carpeta donde instalaste IDF (por ejemplo `C:\Espressif\frameworks\esp-idf-v5.x`).
+2. **Descargar el código:** baja el ZIP de la rama desde
+   `https://github.com/joswil05/escaner_movimiento_esp32/archive/refs/heads/claude/esp32-csi-motion-detection-r7kbmc.zip`.
+   Descomprímelo y **copia la carpeta `firmware\blink` a una ruta corta y sin espacios**, por ejemplo `C:\esp\blink`. Las rutas largas o con espacios rompen la compilación en Windows.
+3. **Importar:** *File → Import… → Espressif → Existing IDF Project → Next*. En *Existing Project Location* elige `C:\esp\blink` y pulsa *Finish*.
+4. **Elegir el chip y el puerto:** en la barra de herramientas, en el desplegable **"on:"**, elige *New Launch Target… → ESP Target*. Nombre: `esp32`, IDF Target: `esp32`, Serial Port: el `COMx` de la placa A. Luego *Finish*. En el desplegable del medio tiene que aparecer `blink`.
+5. **Compilar:** botón del **martillo** (Build). En la pestaña *Console* debe salir `Project build complete`.
+6. **Flashear:** pon la placa B en modo descarga (paso 4 de esta guía) y pulsa el botón verde **Run ▶**. Si no conecta, repite el modo descarga y vuelve a pulsar Run.
+7. **Monitor:** icono **Open a Terminal** (o `Ctrl+Alt+Shift+T`) → *ESP-IDF Serial Monitor* → elige el mismo `COMx` → *OK*. Pulsa EN en la placa B. **Cierra el monitor antes de volver a flashear**, porque ocupa el puerto.
+
 ## Paso 3: convertir la placa A en puente USB‑serial
 
 **Desconecta el USB de la placa A antes de cablear.**
