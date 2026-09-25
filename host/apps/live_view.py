@@ -9,7 +9,7 @@ Al abrir el puerto reinicia la placa y escribe en la terminal sus mensajes de ar
 (MAC, router, IP) y las líneas CSI_STATS; las líneas de CSI solo van a las gráficas.
 
 Muestra:
-  - Mapa de calor: amplitud normalizada de las 52 subportadoras en los últimos segundos.
+  - Mapa de calor: amplitud normalizada de las 51 subportadoras útiles en los últimos segundos.
   - Índice de movimiento: sube cuando alguien se mueve entre la placa y el router.
   - Paquetes por segundo y RSSI.
 """
@@ -160,14 +160,16 @@ class Viewer(QtWidgets.QMainWindow):
         self.statusBar().addWidget(self.status)
 
         # 1) Mapa de calor subportadora x tiempo
-        self.heat_plot = central.addPlot(row=0, col=0, title="Amplitud normalizada por subportadora")
+        self.heat_plot = central.addPlot(row=0, col=0, title="Amplitud normalizada por subportadora (51 útiles)")
         self.heat_plot.setLabel("left", "Subportadora")
         self.heat_plot.setLabel("bottom", "Paquetes (el más reciente a la derecha)")
         self.heat_img = pg.ImageItem()
         self.heat_img.setColorMap(pg.colormap.get("viridis"))
         self.heat_plot.addItem(self.heat_img)
-        # Eje Y en números de subportadora (-26..+26); se aplica después de cada setImage
-        self.heat_rect = QtCore.QRectF(0, LLTF_SUBCARRIER_NUMBERS[0], HEATMAP_PACKETS, len(LLTF_SUBCARRIER_NUMBERS))
+        # Una fila por subportadora útil; el eje Y se rotula con su número real (-26..-1, +2..+26)
+        self.heat_rect = QtCore.QRectF(0, 0, HEATMAP_PACKETS, len(LLTF_SUBCARRIER_NUMBERS))
+        ticks = [(i + 0.5, str(n)) for i, n in enumerate(LLTF_SUBCARRIER_NUMBERS) if n in (-26, -20, -10, -1, 2, 10, 20, 26)]
+        self.heat_plot.getAxis("left").setTicks([ticks])
 
         # 2) Índice de movimiento
         self.motion_plot = central.addPlot(row=1, col=0, title="Índice de movimiento (ventana de ~1 s)")

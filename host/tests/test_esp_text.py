@@ -15,14 +15,16 @@ def make_line(values, pkt_id=7, first_word=0):
 
 def test_parse_csi_line():
     values = [0] * 128
-    values[2], values[3] = 3, 4  # subportadora 1: imag=3, real=4 -> amplitud 5
+    values[4], values[5] = 3, 4  # subportadora +2: imag=3, real=4 -> amplitud 5
+    values[76], values[77] = 6, 8  # índice 38 = subportadora -26 -> amplitud 10
     pkt = parse_line(make_line(values))
     assert isinstance(pkt, CsiPacket)
     assert pkt.id == 7 and pkt.rssi == -45 and pkt.channel == 1
-    assert pkt.csi[1] == 4 + 3j
+    assert pkt.csi[2] == 4 + 3j
     amp = pkt.amplitude
-    assert amp.shape == (52,)
-    assert amp[26] == 5.0  # la subportadora +1 va justo después de las 26 negativas
+    assert amp.shape == (51,)
+    assert amp[0] == 10.0   # primera fila: -26
+    assert amp[26] == 5.0   # después de las 26 negativas viene la +2 (la +1 se descarta)
 
 
 def test_first_word_invalid_is_zeroed():
@@ -44,8 +46,8 @@ def test_parse_stats():
 
 def test_motion_index_grows_with_variation():
     rng = np.random.default_rng(0)
-    still = 10 + rng.normal(0, 0.05, size=(100, 52))
-    moving = 10 + rng.normal(0, 2.0, size=(100, 52))
+    still = 10 + rng.normal(0, 0.05, size=(100, 51))
+    moving = 10 + rng.normal(0, 2.0, size=(100, 51))
     assert motion_index(still) < motion_index(moving)
     # Un cambio de ganancia global (AGC) no debe parecer movimiento
     agc = still * np.linspace(1, 3, 100)[:, None]

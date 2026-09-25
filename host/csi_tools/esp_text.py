@@ -14,9 +14,11 @@ CSI_FIELDS = (
 )
 
 # LLTF en ESP32: 64 subportadoras en orden 0..31, -32..-1.
-# Útiles: -26..-1 (índices 38..63) y 1..26 (índices 1..26). Se descartan DC y guardas.
-LLTF_USEFUL = np.r_[38:64, 1:27]
-LLTF_SUBCARRIER_NUMBERS = np.r_[-26:0, 1:27]
+# Útiles: -26..-1 (índices 38..63) y +2..+26 (índices 2..26). Se descartan DC y guardas, y
+# también la +1: en la ESP32 clásica first_word_invalid viene siempre activo e invalida los
+# primeros 4 bytes, que son las subportadoras 0 y +1 (confirmado en data/samples/fase0_prueba1.csv).
+LLTF_USEFUL = np.r_[38:64, 2:27]
+LLTF_SUBCARRIER_NUMBERS = np.r_[-26:0, 2:27]
 
 
 @dataclass
@@ -46,7 +48,7 @@ class CsiPacket:
 
     @property
     def amplitude(self) -> np.ndarray:
-        """Amplitud de las 52 subportadoras útiles de LLTF, ordenadas de -26 a +26."""
+        """Amplitud de las 51 subportadoras útiles de LLTF (-26..-1, +2..+26)."""
         amp = np.abs(self.csi)
         if amp.size < 64:
             raise ValueError(f"CSI demasiado corto: {amp.size} subportadoras")

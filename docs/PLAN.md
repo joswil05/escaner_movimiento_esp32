@@ -16,7 +16,7 @@
 
 | Fase | Peso | Avance | Nota |
 |---|---|---|---|
-| 0. Preparación | 5 % | ~90 % | Placa B rescatada, router fijo, CSI real visto en el visor. Falta: grabación quieto/caminando/quieto con la tasa completa |
+| 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
 | 1. Captura y visualización | 20 % | ~15 % | Visor/grabador en Python listos (texto). Falta: firmware RX con protocolo binario, firmware TX con ESP-NOW + OTA, experimentos, dataset |
 | 2. Detector en PC | 15 % | 0 % | |
 | 3. Detector en la ESP32 (MVP) | 20 % | 0 % | |
@@ -123,7 +123,7 @@ Presupuesto de ancho de banda: 100 Hz × (~40 B de cabecera + 128–384 B de CSI
 ### 3.4 Procesamiento de señal
 
 1. **Filtrar paquetes:** MAC de origen = TX (o router), misma modulación y `csi_len` esperado.
-2. **Amplitud:** |H| = √(I² + Q²) por subportadora. Se descartan las de guarda, la DC y opcionalmente los pilotos; en LLTF quedan ~52 útiles. Si `first_word_invalid` está activo, se descartan los primeros 4 bytes.
+2. **Amplitud:** |H| = √(I² + Q²) por subportadora. Se descartan las de guarda, la DC y opcionalmente los pilotos; en LLTF quedan 52. En la ESP32 clásica `first_word_invalid` viene **siempre** activo (medido en la fase 0) e invalida las subportadoras 0 y +1, así que quedan **51 útiles** (−26…−1, +2…+26).
 3. **Normalizar por paquete (AGC):** dividir por la amplitud media del paquete. Así se elimina el efecto del control automático de ganancia. Además se evalúan las utilidades de ganancia de esp-csi.
 4. **Filtro Hampel** temporal por subportadora (ventana de 5–7 muestras) para quitar picos.
 5. **Features por ventana deslizante** de 1 s (100 muestras), con salto de 0.1–0.2 s:
