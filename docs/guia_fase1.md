@@ -76,7 +76,7 @@ idf.py set-target esp32
 idf.py menuconfig
 ```
 
-- **`Component config` → `CSI WiFi`**: el mismo nombre y contraseña.
+- **`Component config` → `CSI WiFi`** (la última opción de la lista): el mismo nombre y contraseña.
 - **`CSI receptor`**:
   - **Fuente de CSI** = `Transmisor dedicado (ESP-NOW)`. Es la opción por defecto.
   - **MAC del transmisor** = `F4:2D:C9:6B:26:C0`. Ya viene escrita.
