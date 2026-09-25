@@ -50,6 +50,7 @@ static const char *TAG = "csi_rx";
 
 static QueueHandle_t s_queue;
 static SemaphoreHandle_t s_uart_lock;
+static SemaphoreHandle_t s_log_lock;
 static uint8_t s_filter_mac[6];
 
 static volatile uint32_t s_rx_count;
@@ -72,21 +73,36 @@ static void send_frame(uint8_t type, const void *p1, size_t l1, const void *p2, 
     xSemaphoreGive(s_uart_lock);
 }
 
-/* ESP_LOG pasa por aquí: cada línea de log sale como una trama LOG. */
+/*
+ * ESP_LOG pasa por aquí: cada línea de log sale como una trama LOG. Algunos componentes
+ * (la librería WiFi) escriben una línea en varias llamadas, así que se acumula hasta el '\n'.
+ */
 static int log_to_frame(const char *fmt, va_list args)
 {
-    char line[200];
-    int n = vsnprintf(line, sizeof(line), fmt, args);
+    static char line[200];
+    static size_t len;
+    char part[200];
+    int n = vsnprintf(part, sizeof(part), fmt, args);
     if (n <= 0) {
         return n;
     }
-    size_t len = strnlen(line, sizeof(line));
-    while (len && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
-        len--;
+    xSemaphoreTake(s_log_lock, portMAX_DELAY);
+    size_t plen = strnlen(part, sizeof(part));
+    size_t room = sizeof(line) - len;
+    size_t take = plen < room ? plen : room;
+    memcpy(line + len, part, take);
+    len += take;
+    bool complete = (plen && part[plen - 1] == '\n') || len == sizeof(line);
+    if (complete) {
+        while (len && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+            len--;
+        }
+        if (len) {
+            send_frame(CSI_FRAME_LOG, line, len, NULL, 0);
+        }
+        len = 0;
     }
-    if (len) {
-        send_frame(CSI_FRAME_LOG, line, len, NULL, 0);
-    }
+    xSemaphoreGive(s_log_lock);
     return n;
 }
 
@@ -97,6 +113,7 @@ static void uart_init(void)
     /* printf() de otros componentes también pasa por el driver: no puede cortar una trama a la mitad. */
     uart_vfs_dev_use_driver(UART_PORT);
     s_uart_lock = xSemaphoreCreateMutex();
+    s_log_lock = xSemaphoreCreateMutex();
     esp_log_set_vprintf(log_to_frame);
 }
 
