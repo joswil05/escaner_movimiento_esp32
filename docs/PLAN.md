@@ -20,10 +20,10 @@
 | 1. Captura y visualización | 20 % | ~60 % | Enlace TX→RX validado en el hardware (E1-1). Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: alimentación propia del TX, experimentos 1–3 (`guia_fase1.md`), dataset |
 | 2. Detector en PC | 15 % | ~60 % | Hecho: preprocesado (normalización + Hampel), features V/C/bandas, detector adaptativo con histéresis integrado en el visor, `evaluate.py` con barrido de umbrales, tests (`guia_fase2.md`). Falta: ajustar y validar con grabaciones etiquetadas de dos días distintos |
 | 3. Detector en la ESP32 (MVP) | 20 % | ~55 % | Hecho: 3a `csi_dsp` en C verificado contra Python; 3b detector en el receptor + visor PC/ESP32; 3c página web de la placa (estado, **mapa de actividad E9**, índice, ajustes en NVS) (`guia_fase3.md`). Falta: probar en la placa, 3d prueba de 24 h |
-| 4. UDP, índice de actividad, ntfy | 10 % | ~10 % | E9 (mapa de actividad) ya está en la web de la placa; falta la estimación cerca/lejos, E1, E2, E3 |
+| 4. UDP, índice de actividad, ntfy | 10 % | ~25 % | E9 (mapa de actividad con editor de plano) y buena parte de E1 (eventos + historial de 30 min en la placa) ya están en la web; falta la estimación cerca/lejos, historial de 24 h, E2, E3 |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~38 %** | |
+| **Total** | 100 % | **~40 %** | |
 
 ---
 
@@ -244,7 +244,7 @@ escaner_movimiento_esp32/
 | E5 | Clasificador en la ESP32 | Lo mismo sin PC, en la web y en MQTT | Exportar con emlearn a C (`csi_model`); verificar que PC y placa dan la misma predicción | ★★★★ | Medio |
 | E6 | Rechazo de falsos positivos conocidos (ventilador, puerta, **mascota**) | Menos falsas alarmas; que la mascota no dispare alertas | Ventilador: pico periódico estable en el espectro. Puerta: transitorio único y corto. Mascota: clase propia en E4 (movimiento más bajo, cerca del suelo, energía menor). Se combinan reglas y clasificador | ★★★★ | Alto (sobre todo mascota: una mascota grande se parece a una persona) |
 | E7 | Presencia quieta (respiración) | Distinguir "persona quieta" de "cuarto vacío"; estimar respiraciones por minuto | Ventana de 30 s decimada a 10 Hz, filtro pasa‑banda de 0.1–0.6 Hz, elegir las subportadoras más periódicas, pico espectral + autocorrelación | ★★★★★ | **Alto**: se trata como experimento con criterio de éxito propio |
-| E9 | **Mapa de actividad del cuarto** (vista superior) | El cuarto dibujado a escala con router, TX y RX; la zona sensible entre las placas se tiñe con una escala de color según la intensidad del movimiento (tipo cámara térmica, pero lo que se mide es **movimiento**, no temperatura) | Plano configurable (medidas y posiciones). Zona sensible = elipses de Fresnel entre TX y RX (física real). Color = índice de movimiento medido. Ondas animadas desde el TX, marcadas como **decorativas**. Opcional: estimar "cerca/lejos de la línea TX–RX" según la magnitud de la alteración, marcado como estimación. En el visor de la PC y en la web de la ESP32 | ★★★ | Bajo en lo visual. **Límite físico:** con un solo enlace no se mide *dónde* está la persona dentro de la zona; con ≥4 placas (tomografía de radio) el mapa pasaría a mostrar la zona real sin rediseñarlo |
+| E9 | **Mapa de actividad del cuarto** (vista superior) | Editor de plano (paredes con material, muebles, TX/RX/router arrastrables) y vista en vivo donde la zona sensible se ilumina según el movimiento medido | Web de la ESP32. **Mapa de sensibilidad estimado:** exceso de camino TX→punto→RX en longitudes de onda (Fresnel) × atenuación de las paredes cruzadas (drywall 4 dB … metal 30 dB). Intensidad = índice medido. Chequeos de ubicación (distancia, paredes en la línea TX–RX, metal cerca). Eventos (últimos 50) e historial de 30 min guardados en la placa | ★★★ | **Límite físico:** con un solo enlace no se mide *dónde* está la persona dentro de la zona; con ≥4 placas (tomografía de radio) el mapa pasaría a mostrar la zona real sin rediseñarlo |
 
 ### Fuera de alcance
 
@@ -308,7 +308,7 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 
 **Terminado cuando:** E4 supera el 85 % de exactitud balanceada en el día de prueba; E6 reduce las falsas alarmas de S5 al menos a la mitad; E5 da las mismas predicciones que la PC en ≥99 % de las ventanas y tarda <5 ms por inferencia.
 
-**E9 (mapa de actividad):** se hizo directamente en la **web de la ESP32** (fase 3c), que se abre tanto en la laptop como en el celular: una sola implementación para los dos. Queda pendiente la estimación "cerca/lejos de la línea TX–RX". Se termina cuando el plano se configura con las medidas reales y el color responde en vivo al movimiento, con los elementos decorativos y estimados indicados en pantalla.
+**E9 (mapa de actividad):** se hizo directamente en la **web de la ESP32** (fase 3c), que se abre tanto en la laptop como en el celular: una sola implementación para los dos. Incluye editor de plano con paredes y materiales, mapa de sensibilidad estimado, eventos e historial guardados en la placa. Queda pendiente la estimación "cerca/lejos de la línea TX–RX". Se termina cuando el plano se configura con las medidas reales y el color responde en vivo al movimiento, con los elementos decorativos y estimados indicados en pantalla.
 
 ### Fase 6: investigación, presencia quieta (E7)
 - Grabaciones largas de S4 (5–10 min sentado o acostado quieto, a 1–3 m de la línea TX–RX) **con referencia**: contar respiraciones a mano o con una app de respiración del celular.
@@ -359,6 +359,7 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 | UDP/MQTT compiten con la captura por el radio | Baja la tasa de CSI | Medir la tasa con y sin E2/E3; limitar la frecuencia de publicación |
 | Pocos datos para ML | El clasificador no generaliza | Grabar en varios días; validar dejando un día fuera; comparar siempre con el detector por umbral |
 | E7 no alcanza el criterio | Frustración | Está planteado como experimento; el proyecto está completo sin él |
+| El firmware del RX no entra en su partición de 1 MB (hoy ocupa ~87 %, sobre todo por la web) | No compila | Pasar a `PARTITION_TABLE_SINGLE_APP_LARGE` (1.5 MB) o comprimir la página con gzip |
 
 ---
 

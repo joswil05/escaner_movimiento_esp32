@@ -74,23 +74,52 @@ El receptor sirve una página propia, que se abre desde **cualquier navegador co
 
 ### Qué tiene
 
-| Parte | Qué muestra |
+Arriba siempre ves el **cartel de estado** (✓ QUIETO / ● MOVIMIENTO / ◌ CALIBRANDO, o "Sin conexión con la placa"), los datos del enlace y el botón **Recalibrar**. Debajo hay cuatro pestañas:
+
+| Pestaña | Qué hace |
 |---|---|
-| **Cartel de estado** | ✓ QUIETO (verde), ● MOVIMIENTO (rojo) o ◌ CALIBRANDO (amarillo). Si la placa deja de responder: "Sin conexión con la placa" |
-| **Datos del enlace** | Paquetes/s, perdidos en el aire, RSSI, IP y versión del transmisor, tiempo de cálculo por decisión, memoria libre |
-| **Mapa** | Tu cuarto visto desde arriba, con router, TX y RX. La **zona sensible** entre TX y RX (zonas de Fresnel, calculadas con el canal real) se colorea según la intensidad del movimiento medido. Las ondas que salen del TX son **decorativas** y se pueden apagar |
-| **Índice** | Gráfica de los últimos 60 s: índice, umbrales y tramos de MOVIMIENTO. Pasa el mouse o el dedo para ver los valores |
-| **Ajustes** | Medidas del cuarto y posición (en metros) de TX, RX y router; umbrales del detector. Todo se guarda **en la placa** y se mantiene tras reiniciarla |
-| **Recalibrar** | Igual que la tecla `R` del visor |
+| **En vivo** | Tu plano visto desde arriba. La **zona sensible** entre TX y RX se ilumina y "respira" según la intensidad del movimiento medido. Abajo, una tira con la intensidad de los últimos 60 s (rojo = MOVIMIENTO). A la derecha, la **lista de eventos** ("07:47:34 · en curso · 13 s", con una barra de intensidad máxima) y dos indicadores: eventos y % del tiempo en movimiento en los últimos 30 min |
+| **Plano** | Editor del lugar (detalle abajo) |
+| **Historial** | Gráfica del índice con umbrales y tramos de movimiento, en rangos de **1 min** y **5 min** (5 decisiones por segundo, desde que abriste la página) y **30 min** (bloques de 10 s **guardados en la placa**, disponibles aunque recién abras la página). Pasa el mouse o el dedo para ver la hora y los valores; las marcas rojas de arriba son los eventos |
+| **Detector** | Umbrales del detector, guardados en la placa |
+
+### El editor de plano
+
+Con él **dibujas el lugar una vez**, y el sistema calcula qué zonas "ve":
+
+| Herramienta | Uso |
+|---|---|
+| **✥ Mover** | Arrastra **TX**, **RX** y **Router**, paredes (enteras o por sus extremos) y muebles. Arrastrar el fondo desplaza la vista |
+| **▭ Pared** | Arrastra para dibujar una pared. Se ajusta a una cuadrícula de 10 cm, se endereza sola si está casi horizontal o vertical y se une a los extremos de otras paredes. Antes de dibujar, elige el **material** |
+| **▢ Mueble** | Arrastra un rectángulo; el nombre se escribe en la casilla de al lado |
+| **✕ Borrar** | Toca una pared o un mueble |
+| Zoom | Rueda del mouse, dos dedos, o los botones ＋ / － / ⤢ Ajustar |
+| Deshacer | Botón ↶ o Ctrl+Z |
+| Guardar | **Guardar en la placa**: queda guardado aunque la reinicies. "Descartar cambios" vuelve a lo guardado |
+
+**Materiales y pérdida típica a 2.4 GHz** (por cada pared que cruza la señal): tabique/drywall −4 dB, madera/puerta −4 dB, vidrio −3 dB, ladrillo −10 dB, concreto −15 dB, metal −30 dB.
+
+**Mapa de sensibilidad (estimado):** mientras editas, el plano se pinta según qué tan bien "ve" el sistema cada punto. Combina dos cosas:
+1. **Geometría:** qué tanto se desvía el camino TX → punto → RX de la línea directa (zonas de Fresnel del canal actual).
+2. **Paredes:** la pérdida de cada pared que cruzan los caminos TX → punto y punto → RX.
+
+Si mueves una placa, el mapa se recalcula al instante. Úsalo para **decidir dónde poner las placas antes de moverlas de verdad**.
+
+**Panel "Ubicación de las placas":** revisa tu diseño en vivo:
+- distancia TX–RX (ideal 2–5 m);
+- ancho de la zona más sensible;
+- si la línea TX–RX **cruza paredes** (con la pérdida total; se marcan con ❗ rojo en el plano);
+- si hay **metal** a menos de 50 cm del enlace.
 
 ### Cómo leer el mapa
 
 - **Intensidad 0 %**: el índice está en la línea base (calma). **50 %**: justo en el umbral de activación. **100 %**: el doble o más.
-- **Límite físico:** con dos placas se mide **cuánto** movimiento hay en la zona sensible, **no dónde** está la persona. La página lo dice en la leyenda. Con 4 o más placas el mismo mapa podría mostrar la zona real.
-- **Cuando separes las placas**, mide el cuarto y la posición de cada equipo (desde la esquina que quieras usar como origen) y cárgalos en **Ajustes → Cuarto**.
+- **La intensidad es real** (sale del detector). **La forma de la zona es un modelo** (física más tu plano). **El brillo que "respira" y las ondas son visuales.**
+- **Límite físico:** con dos placas se mide **cuánto** movimiento hay en la zona sensible, **no dónde** está la persona. Con 4 o más placas el mismo mapa podría mostrar la zona real.
+- **Paredes:** la señal de 2.4 GHz atraviesa tabiques y madera casi sin problema, así que **un movimiento en el cuarto de al lado a veces se detecta**. El mapa te muestra si esa zona queda dentro de lo que el sistema "ve".
 
 ### Estabilidad
 
-- La página consulta el estado **4 veces por segundo** (~600 bytes cada vez). La placa capta 100 paquetes por segundo, así que es poco tráfico.
+- La página consulta el estado **4 veces por segundo** (~600 bytes), los eventos cada 2 s y el historial cada 10 s. La placa capta 100 paquetes por segundo, así que es poco tráfico.
 - El servidor web corre en el núcleo 0 con prioridad baja, y la captura y el detector en el núcleo 1. Si un navegador se cuelga, la detección sigue igual.
 - **Verifícalo:** mira los paquetes/s y los perdidos con la página **abierta y cerrada**. No deberían cambiar.

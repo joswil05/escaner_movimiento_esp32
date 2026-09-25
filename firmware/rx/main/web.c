@@ -8,6 +8,8 @@
  *   POST /api/config     cambia y guarda los umbrales (JSON)
  *   GET  /api/room       plano del cuarto (JSON guardado tal cual en NVS)
  *   POST /api/room       guarda el plano
+ *   GET  /api/events     últimos eventos de movimiento y el que está en curso
+ *   GET  /api/history    bloques de 10 s de los últimos 30 min
  *
  * La web solo lee el último resultado: si un navegador se cuelga, la detección sigue igual.
  */
@@ -18,8 +20,10 @@
 #include "cJSON.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_netif_ip_addr.h"
 #include "nvs.h"
+#include "activity.h"
 #include "rx_status.h"
 
 static const char *TAG = "web";
@@ -28,9 +32,18 @@ extern const char index_html_start[] asm("_binary_index_html_start");
 extern const char index_html_end[] asm("_binary_index_html_end");
 
 #define NVS_NS "csi_rx"
-#define ROOM_MAX 600
+#define ROOM_MAX 3800 /* plano con paredes y muebles; NVS admite cadenas de hasta 4000 bytes */
 static const char *DEFAULT_ROOM =
-    "{\"width\":4.0,\"depth\":4.0,\"tx\":[0.5,2.0],\"rx\":[3.5,2.0],\"router\":[0.3,0.3]}";
+    "{\"v\":2,\"width\":5.0,\"depth\":4.0,\"tx\":[0.8,2.0],\"rx\":[4.2,2.0],\"router\":[0.4,0.4],"
+    "\"walls\":[],\"furniture\":[]}";
+
+/* El servidor atiende una petición a la vez: un búfer estático evita usar la pila de la tarea HTTP. */
+static char s_room_buf[ROOM_MAX];
+
+static uint32_t now_ms(void)
+{
+    return (uint32_t)(esp_timer_get_time() / 1000);
+}
 
 static esp_err_t send_json(httpd_req_t *req, const char *json)
 {
@@ -77,12 +90,12 @@ static esp_err_t state_get(httpd_req_t *req)
     const csi_features_t *f = &s.features;
     char buf[640];
     snprintf(buf, sizeof(buf),
-             "{\"state\":\"%s\",\"score\":%.5f,\"on\":%.5f,\"off\":%.5f,\"base\":%.5f,\"proc_us\":%u,\"decisions\":%" PRIu32 ","
+             "{\"now\":%" PRIu32 ",\"state\":\"%s\",\"score\":%.5f,\"on\":%.5f,\"off\":%.5f,\"base\":%.5f,\"proc_us\":%u,\"decisions\":%" PRIu32 ","
              "\"features\":{\"variance\":%.5f,\"decorrelation\":%.5f,\"band_1_3\":%.4f,\"band_3_10\":%.4f,"
              "\"band_10_40\":%.4f,\"rate_hz\":%.1f},"
              "\"uptime_ms\":%" PRIu32 ",\"rate\":%u,\"dropped\":%" PRIu32 ",\"lost\":%" PRIu32 ",\"rssi\":%d,"
              "\"channel\":%u,\"source\":\"%s\",\"heap\":%" PRIu32 ",\"tx\":{\"ok\":%s,\"ip\":\"%s\",\"fw\":\"%s\"}}",
-             csi_state_name(s.state), s.score, s.threshold_on, s.threshold_off, s.base, s.proc_us, s.decisions, f->variance,
+             now_ms(), csi_state_name(s.state), s.score, s.threshold_on, s.threshold_off, s.base, s.proc_us, s.decisions, f->variance,
              f->decorrelation, f->band_1_3, f->band_3_10, f->band_10_40, f->rate_hz, s.uptime_ms, s.rx_last_s,
              s.dropped_total, s.tx_lost_total, s.rssi, s.channel, s.source ? "tx" : "router", s.free_heap,
              s.have_tx ? "true" : "false", ip, s.tx_fw);
@@ -161,14 +174,13 @@ static esp_err_t config_post(httpd_req_t *req)
 
 static esp_err_t room_get(httpd_req_t *req)
 {
-    char buf[ROOM_MAX];
-    size_t len = sizeof(buf);
+    size_t len = sizeof(s_room_buf);
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READONLY, &h) == ESP_OK) {
-        esp_err_t err = nvs_get_str(h, "room", buf, &len);
+        esp_err_t err = nvs_get_str(h, "room", s_room_buf, &len);
         nvs_close(h);
         if (err == ESP_OK) {
-            return send_json(req, buf);
+            return send_json(req, s_room_buf);
         }
     }
     return send_json(req, DEFAULT_ROOM);
@@ -176,11 +188,10 @@ static esp_err_t room_get(httpd_req_t *req)
 
 static esp_err_t room_post(httpd_req_t *req)
 {
-    char body[ROOM_MAX];
-    if (read_body(req, body, sizeof(body)) < 0) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "cuerpo invalido o demasiado largo");
+    if (read_body(req, s_room_buf, sizeof(s_room_buf)) < 0) {
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "cuerpo invalido o plano demasiado grande");
     }
-    cJSON *root = cJSON_Parse(body);
+    cJSON *root = cJSON_Parse(s_room_buf);
     bool valid = root && cJSON_IsNumber(cJSON_GetObjectItem(root, "width")) &&
                  cJSON_IsNumber(cJSON_GetObjectItem(root, "depth")) &&
                  cJSON_IsArray(cJSON_GetObjectItem(root, "tx")) && cJSON_IsArray(cJSON_GetObjectItem(root, "rx"));
@@ -191,7 +202,7 @@ static esp_err_t room_post(httpd_req_t *req)
     nvs_handle_t h;
     esp_err_t err = nvs_open(NVS_NS, NVS_READWRITE, &h);
     if (err == ESP_OK) {
-        err = nvs_set_str(h, "room", body);
+        err = nvs_set_str(h, "room", s_room_buf);
         if (err == ESP_OK) {
             err = nvs_commit(h);
         }
@@ -200,7 +211,53 @@ static esp_err_t room_post(httpd_req_t *req)
     if (err != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
     }
-    return send_json(req, body);
+    return send_json(req, "{\"ok\":true}");
+}
+
+/* Respuestas largas en pedazos: no hace falta un búfer grande. */
+static esp_err_t events_get(httpd_req_t *req)
+{
+    static activity_event_t ev[ACTIVITY_MAX_EVENTS];
+    activity_event_t active;
+    bool has_active;
+    int n = activity_get_events(ev, ACTIVITY_MAX_EVENTS, &active, &has_active);
+    char item[160];
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    snprintf(item, sizeof(item), "{\"now\":%" PRIu32 ",\"events\":[", now_ms());
+    httpd_resp_sendstr_chunk(req, item);
+    for (int i = 0; i < n; i++) {
+        snprintf(item, sizeof(item), "%s[%" PRIu32 ",%" PRIu32 ",%.5f,%.5f,%.5f]", i ? "," : "", ev[i].start_ms,
+                 ev[i].dur_ms, ev[i].peak, ev[i].base, ev[i].on);
+        httpd_resp_sendstr_chunk(req, item);
+    }
+    if (has_active) {
+        snprintf(item, sizeof(item), "],\"active\":[%" PRIu32 ",%" PRIu32 ",%.5f,%.5f,%.5f]}", active.start_ms,
+                 active.dur_ms, active.peak, active.base, active.on);
+    } else {
+        snprintf(item, sizeof(item), "],\"active\":null}");
+    }
+    httpd_resp_sendstr_chunk(req, item);
+    return httpd_resp_sendstr_chunk(req, NULL);
+}
+
+static esp_err_t history_get(httpd_req_t *req)
+{
+    static activity_bin_t bins[ACTIVITY_MAX_BINS];
+    int n = activity_get_bins(bins, ACTIVITY_MAX_BINS);
+    char item[96];
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    snprintf(item, sizeof(item), "{\"now\":%" PRIu32 ",\"bin_ms\":%d,\"bins\":[", now_ms(),
+             ACTIVITY_BIN_MS);
+    httpd_resp_sendstr_chunk(req, item);
+    for (int i = 0; i < n; i++) {
+        snprintf(item, sizeof(item), "%s[%" PRIu32 ",%.5f,%.5f,%.3f]", i ? "," : "", bins[i].end_ms,
+                 bins[i].max_score, bins[i].mean_score, bins[i].motion_frac);
+        httpd_resp_sendstr_chunk(req, item);
+    }
+    httpd_resp_sendstr_chunk(req, "]}");
+    return httpd_resp_sendstr_chunk(req, NULL);
 }
 
 void web_start(void)
@@ -211,6 +268,7 @@ void web_start(void)
     config.task_priority = 3;          /* por debajo de la captura y del detector */
     config.core_id = 0;
     config.stack_size = 6144;
+    config.max_uri_handlers = 12;
     httpd_handle_t server;
     if (httpd_start(&server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "No se pudo iniciar el servidor web");
@@ -224,6 +282,8 @@ void web_start(void)
         {.uri = "/api/config", .method = HTTP_POST, .handler = config_post},
         {.uri = "/api/room", .method = HTTP_GET, .handler = room_get},
         {.uri = "/api/room", .method = HTTP_POST, .handler = room_post},
+        {.uri = "/api/events", .method = HTTP_GET, .handler = events_get},
+        {.uri = "/api/history", .method = HTTP_GET, .handler = history_get},
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) {
         httpd_register_uri_handler(server, &uris[i]);

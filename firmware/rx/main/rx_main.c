@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "activity.h"
 #include "csi_dsp.h"
 #include "csi_proto.h"
 #include "csi_wifi.h"
@@ -328,6 +329,7 @@ static void run_detector(const csi_item_t *item)
     s_status.features = d->features;
     s_status.decisions++;
     taskEXIT_CRITICAL(&s_status_lock);
+    activity_on_decision(f.uptime_ms, d->state, d->score, s_detector.base, d->threshold_on);
     if (d->state != s_prev) {
         ESP_LOGI(TAG, "Detector: %s (indice %.3f, umbral %.3f, %u us)", csi_state_name(d->state), d->score,
                  d->threshold_on, f.proc_us);

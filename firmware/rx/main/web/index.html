@@ -7,67 +7,98 @@
 <style>
 :root {
   color-scheme: light;
-  --surface-0: #f4f3f0; --surface-1: #fcfcfb; --border: #dcdad4;
+  --surface-0: #f4f3f0; --surface-1: #fcfcfb; --surface-2: #eeede9; --border: #dcdad4;
   --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
-  --grid: #e6e4df; --wall: #52514e;
-  --series-1: #2a78d6; --activity: 42, 120, 214;
+  --grid: #e8e6e1; --grid-fine: #f1f0ec; --wall: #3d3c39; --furniture: #e3e1db; --furniture-edge: #c9c6be;
+  --series-1: #2a78d6; --activity: 42, 120, 214; --sens: 42, 120, 214;
   --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
-  --motion-span: rgba(208, 59, 59, 0.12);
+  --motion-span: rgba(208, 59, 59, 0.12); --accent-ring: rgba(42, 120, 214, 0.35);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --surface-0: #121211; --surface-1: #1a1a19; --border: #33332f;
+    --surface-0: #121211; --surface-1: #1a1a19; --surface-2: #232321; --border: #33332f;
     --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8e8d85;
-    --grid: #2a2a27; --wall: #c3c2b7;
-    --series-1: #3987e5; --activity: 57, 135, 229;
-    --motion-span: rgba(208, 59, 59, 0.22);
+    --grid: #2a2a27; --grid-fine: #20201e; --wall: #d9d8d0; --furniture: #2c2c29; --furniture-edge: #45453f;
+    --series-1: #3987e5; --activity: 57, 135, 229; --sens: 57, 135, 229;
+    --motion-span: rgba(208, 59, 59, 0.22); --accent-ring: rgba(57, 135, 229, 0.4);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-0: #121211; --surface-1: #1a1a19; --border: #33332f;
+  --surface-0: #121211; --surface-1: #1a1a19; --surface-2: #232321; --border: #33332f;
   --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8e8d85;
-  --grid: #2a2a27; --wall: #c3c2b7;
-  --series-1: #3987e5; --activity: 57, 135, 229;
-  --motion-span: rgba(208, 59, 59, 0.22);
+  --grid: #2a2a27; --grid-fine: #20201e; --wall: #d9d8d0; --furniture: #2c2c29; --furniture-edge: #45453f;
+  --series-1: #3987e5; --activity: 57, 135, 229; --sens: 57, 135, 229;
+  --motion-span: rgba(208, 59, 59, 0.22); --accent-ring: rgba(57, 135, 229, 0.4);
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--surface-0); color: var(--text-primary);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-main { max-width: 980px; margin: 0 auto; padding: 16px; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
 h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
+h2 { font-size: 15px; margin: 0 0 10px; }
 .badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px;
-  font-weight: 700; font-size: 18px; color: #fff; min-width: 190px; justify-content: center; }
+  font-weight: 700; font-size: 18px; color: #fff; min-width: 200px; justify-content: center; transition: background .2s; }
 .badge.quiet { background: var(--good); }
 .badge.motion { background: var(--critical); }
 .badge.calib, .badge.off { background: var(--warning); color: #0b0b0b; }
-button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+button, .btn { font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--surface-1); color: var(--text-primary); cursor: pointer; }
+button:hover { border-color: var(--text-muted); }
 button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
+button:disabled { opacity: .45; cursor: default; }
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 16px; }
 .stat .k { color: var(--text-muted); font-size: 12px; }
 .stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
-nav { display: flex; gap: 6px; margin-bottom: 12px; }
+nav { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+nav button { font-size: 15px; padding: 8px 14px; }
 nav button[aria-selected="true"] { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
-canvas { width: 100%; display: block; touch-action: none; }
+canvas { width: 100%; display: block; touch-action: none; border-radius: 8px; }
 .note { color: var(--text-secondary); font-size: 13px; margin: 8px 0 0; }
-.legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
-.ramp { width: 120px; height: 10px; border-radius: 3px; border: 1px solid var(--border);
-  background: linear-gradient(to right, rgba(var(--activity), 0.05), rgba(var(--activity), 0.95)); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
+.ramp { width: 110px; height: 10px; border-radius: 3px; border: 1px solid var(--border);
+  background: linear-gradient(to right, rgba(var(--activity), 0.04), rgba(var(--activity), 0.95)); }
 .swatch { display: inline-block; width: 18px; height: 0; border-top: 2px dashed; vertical-align: middle; margin-right: 4px; }
-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.events { list-style: none; margin: 0; padding: 0; max-height: 470px; overflow-y: auto; }
+.events li { display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; align-items: center; padding: 7px 4px;
+  border-bottom: 1px solid var(--border); font-size: 13px; font-variant-numeric: tabular-nums; }
+.events li.active { background: var(--motion-span); border-radius: 6px; }
+.events .t { color: var(--text-secondary); }
+.events .bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+.events .bar i { display: block; height: 100%; background: var(--series-1); border-radius: 3px; }
+.events .d { color: var(--text-muted); text-align: right; }
+.empty { color: var(--text-muted); font-size: 13px; padding: 10px 0; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.kpi { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.kpi .k { font-size: 12px; color: var(--text-muted); } .kpi .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.toolbar .sep { width: 1px; height: 26px; background: var(--border); margin: 0 4px; }
+.toolbar select, .toolbar input { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-0); color: var(--text-primary); }
+.toolbar input[type=number] { width: 72px; }
+.status-line { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); margin-top: 6px; flex-wrap: wrap; }
+.checks { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.checks li { padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
+.checks li:last-child { border-bottom: 0; }
+.ok { color: var(--good); font-weight: 700; } .warn { color: #b77900; font-weight: 700; } .bad { color: var(--critical); font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn { color: var(--warning); } }
+form { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px 14px; }
 label { display: flex; flex-direction: column; font-size: 13px; color: var(--text-secondary); gap: 4px; }
 input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
-  background: var(--surface-0); color: var(--text-primary); width: 100%; }
-h2 { font-size: 15px; margin: 0 0 10px; }
+  background: var(--surface-0); color: var(--text-primary); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
 .msg { font-size: 13px; color: var(--text-secondary); }
-.tooltip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
-  border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); display: none; white-space: nowrap; }
 .plot { position: relative; }
+.tooltip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); display: none; white-space: nowrap; z-index: 2; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -76,7 +107,7 @@ h2 { font-size: 15px; margin: 0 0 10px; }
   <header>
     <h1>Escáner de movimiento WiFi</h1>
     <span id="badge" class="badge off" role="status" aria-live="polite">Conectando…</span>
-    <button id="recal" title="Quédate quieto unos 5 s">Recalibrar</button>
+    <button id="recal" title="Quédate quieto unos 5 s mientras dice CALIBRANDO">Recalibrar</button>
   </header>
 
   <section class="card stats" aria-label="Estado del enlace">
@@ -89,303 +120,695 @@ h2 { font-size: 15px; margin: 0 0 10px; }
   </section>
 
   <nav role="tablist">
-    <button role="tab" data-tab="map" aria-selected="true">Mapa</button>
-    <button role="tab" data-tab="chart" aria-selected="false">Índice</button>
-    <button role="tab" data-tab="settings" aria-selected="false">Ajustes</button>
+    <button role="tab" data-tab="live" aria-selected="true">En vivo</button>
+    <button role="tab" data-tab="plan" aria-selected="false">Plano</button>
+    <button role="tab" data-tab="history" aria-selected="false">Historial</button>
+    <button role="tab" data-tab="detector" aria-selected="false">Detector</button>
   </nav>
 
-  <section id="tab-map" class="card">
-    <canvas id="map" height="360" aria-label="Mapa de actividad del cuarto visto desde arriba"></canvas>
-    <div class="legend" style="justify-content:space-between"><span id="map-scale"></span><span id="map-int"></span></div>
-    <div class="legend">
-      <span>Intensidad de movimiento medida</span><span class="ramp" aria-hidden="true"></span>
-      <span>baja → alta</span>
-      <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="waves" checked style="width:auto"> Ondas animadas (decorativas)</label>
+  <!-- EN VIVO -->
+  <section id="tab-live" class="grid2">
+    <div class="card">
+      <canvas id="live-map" height="420" aria-label="Mapa de actividad del cuarto visto desde arriba"></canvas>
+      <canvas id="strip" height="46" aria-label="Intensidad de movimiento de los últimos 60 segundos" style="margin-top:8px"></canvas>
+      <div class="status-line"><span>Intensidad de los últimos 60 s</span><span id="live-int">Intensidad —</span></div>
+      <div class="legend">
+        <span>Movimiento medido</span><span class="ramp" aria-hidden="true"></span><span>bajo → alto</span>
+        <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="waves" checked> Ondas (decorativas)</label>
+        <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="sens-show" checked> Zona sensible estimada</label>
+      </div>
+      <p class="note">El color ocupa la <b>zona sensible</b> entre TX y RX, estimada con un modelo (zonas de Fresnel del canal actual y la atenuación de cada pared del plano). Su <b>intensidad es real</b>: sale del detector en vivo. Con dos placas no se puede medir <b>dónde</b> está la persona dentro de esa zona; el brillo y el movimiento del patrón son solo visuales.</p>
     </div>
-    <p class="note">El color pinta la <b>zona sensible</b> entre transmisor y receptor (zonas de Fresnel, calculadas para el canal actual) según el movimiento medido. Con dos placas no se puede medir <b>dónde</b> está la persona dentro de esa zona: el mapa muestra cuánto movimiento hay, no su posición. Las medidas del cuarto se cambian en <i>Ajustes</i>.</p>
+    <div>
+      <div class="card">
+        <h2>Actividad</h2>
+        <div class="kpis">
+          <div class="kpi"><div class="k">Eventos (30 min)</div><div class="v" id="k-events">—</div></div>
+          <div class="kpi"><div class="k">En movimiento (30 min)</div><div class="v" id="k-share">—</div></div>
+        </div>
+        <ul class="events" id="events" aria-label="Eventos de movimiento, el más reciente primero"></ul>
+      </div>
+    </div>
   </section>
 
-  <section id="tab-chart" class="card" hidden>
-    <div class="plot"><canvas id="chart" height="300" aria-label="Índice de movimiento de los últimos 60 segundos"></canvas><div class="tooltip" id="tip"></div></div>
+  <!-- PLANO -->
+  <section id="tab-plan" class="grid2" hidden>
+    <div class="card">
+      <div class="toolbar" role="toolbar" aria-label="Herramientas del plano">
+        <span class="seg">
+          <button data-tool="select" aria-pressed="true" title="Mover equipos, paredes y muebles; arrastrar el fondo desplaza la vista">✥ Mover</button>
+          <button data-tool="wall" aria-pressed="false" title="Arrastra para dibujar una pared">▭ Pared</button>
+          <button data-tool="furniture" aria-pressed="false" title="Arrastra para dibujar un mueble">▢ Mueble</button>
+          <button data-tool="erase" aria-pressed="false" title="Toca una pared o un mueble para borrarlo">✕ Borrar</button>
+        </span>
+        <select id="material" title="Material de las paredes nuevas (o de la pared seleccionada)"></select>
+        <input id="furn-label" placeholder="Nombre del mueble" value="Mueble" style="width:130px">
+        <span class="sep"></span>
+        <button id="undo" title="Deshacer (Ctrl+Z)">↶ Deshacer</button>
+        <button id="zoom-in" title="Acercar">＋</button>
+        <button id="zoom-out" title="Alejar">－</button>
+        <button id="fit" title="Ver todo el plano">⤢ Ajustar</button>
+      </div>
+      <canvas id="plan-map" height="480" aria-label="Editor del plano"></canvas>
+      <div class="status-line"><span id="cursor">Mueve el puntero sobre el plano</span><span id="dirty"></span></div>
+      <div class="row">
+        <label style="flex-direction:row;align-items:center;gap:6px">Área del plano
+          <input id="pw" type="number" step="0.5" min="1" max="30" style="width:70px"> ×
+          <input id="pd" type="number" step="0.5" min="1" max="30" style="width:70px"> m</label>
+        <button class="primary" id="plan-save">Guardar en la placa</button>
+        <button id="plan-revert">Descartar cambios</button>
+        <span class="msg" id="plan-msg"></span>
+      </div>
+      <p class="note">Arrastra <b>TX</b>, <b>RX</b> y el <b>router</b> para probar ubicaciones: la zona sensible se recalcula al instante. Dibuja las paredes con su material (también las del cuarto vecino) y los muebles grandes. Rueda o dos dedos: zoom. Arrastrar el fondo: desplazar.</p>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Ubicación de las placas</h2>
+        <ul class="checks" id="checks"></ul>
+      </div>
+      <div class="card">
+        <h2>Materiales</h2>
+        <ul class="checks" id="materials"></ul>
+        <p class="note">Pérdida típica a 2.4 GHz por cada cruce. Detrás de paredes de ladrillo, concreto o metal el sistema "ve" mucho menos.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section id="tab-history" class="card" hidden>
+    <div class="toolbar">
+      <span class="seg" id="ranges">
+        <button data-range="60" aria-pressed="true">1 min</button>
+        <button data-range="300" aria-pressed="false">5 min</button>
+        <button data-range="1800" aria-pressed="false">30 min</button>
+      </span>
+      <span class="msg" id="range-note"></span>
+    </div>
+    <div class="plot"><canvas id="chart" height="320" aria-label="Índice de movimiento en el tiempo"></canvas><div class="tooltip" id="tip"></div></div>
     <div class="legend">
-      <span><span class="swatch" style="border-top-style:solid;border-color:var(--series-1)"></span>Índice de movimiento</span>
+      <span><span class="swatch" style="border-top-style:solid;border-color:var(--series-1)"></span><span id="leg-series">Índice de movimiento</span></span>
       <span><span class="swatch" style="border-color:var(--critical)"></span>Umbral de activación</span>
       <span><span class="swatch" style="border-color:var(--good)"></span>Umbral de liberación</span>
       <span><span class="swatch" style="border:0;height:10px;background:var(--motion-span)"></span>MOVIMIENTO</span>
     </div>
   </section>
 
-  <section id="tab-settings" hidden>
-    <div class="card">
-      <h2>Cuarto (metros, origen en la esquina superior izquierda del plano)</h2>
-      <form id="room-form">
-        <label>Ancho<input name="width" type="number" step="0.1" min="1" max="30" required></label>
-        <label>Largo<input name="depth" type="number" step="0.1" min="1" max="30" required></label>
-        <label>Transmisor x<input name="tx0" type="number" step="0.05" min="0" required></label>
-        <label>Transmisor y<input name="tx1" type="number" step="0.05" min="0" required></label>
-        <label>Receptor x<input name="rx0" type="number" step="0.05" min="0" required></label>
-        <label>Receptor y<input name="rx1" type="number" step="0.05" min="0" required></label>
-        <label>Router x<input name="router0" type="number" step="0.05" min="0"></label>
-        <label>Router y<input name="router1" type="number" step="0.05" min="0"></label>
-      </form>
-      <div class="row"><button class="primary" id="room-save">Guardar cuarto</button><span class="msg" id="room-msg"></span></div>
-    </div>
-    <div class="card">
-      <h2>Detector</h2>
-      <form id="det-form">
-        <label>Medida<select name="feature"><option value="variance">Varianza (V)</option><option value="decorrelation">Decorrelación (C)</option></select></label>
-        <label>Activación: k·σ<input name="k_on" type="number" step="0.5" min="1" max="50"></label>
-        <label>Activación: mínimo × base<input name="ratio_on" type="number" step="0.05" min="1" max="10"></label>
-        <label>Liberación: k·σ<input name="k_off" type="number" step="0.5" min="0.5" max="50"></label>
-        <label>Liberación: mínimo × base<input name="ratio_off" type="number" step="0.05" min="1" max="10"></label>
-        <label>Ventanas para activar<input name="n_on" type="number" step="1" min="1" max="25"></label>
-        <label>Ventanas para liberar<input name="n_off" type="number" step="1" min="1" max="50"></label>
-      </form>
-      <div class="row"><button class="primary" id="det-save">Guardar umbrales</button><span class="msg" id="det-msg"></span></div>
-      <p class="note">Cada ventana dura 0.2 s. Los cambios se guardan en la placa y se mantienen tras reiniciarla. Cambiar la medida recalibra el detector.</p>
-    </div>
+  <!-- DETECTOR -->
+  <section id="tab-detector" class="card" hidden>
+    <h2>Umbrales del detector</h2>
+    <form id="det-form">
+      <label>Medida<select name="feature"><option value="variance">Varianza (V)</option><option value="decorrelation">Decorrelación (C)</option></select></label>
+      <label>Activación: k·σ<input name="k_on" type="number" step="0.5" min="1" max="50"></label>
+      <label>Activación: mínimo × base<input name="ratio_on" type="number" step="0.05" min="1" max="10"></label>
+      <label>Liberación: k·σ<input name="k_off" type="number" step="0.5" min="0.5" max="50"></label>
+      <label>Liberación: mínimo × base<input name="ratio_off" type="number" step="0.05" min="1" max="10"></label>
+      <label>Ventanas para activar<input name="n_on" type="number" step="1" min="1" max="25"></label>
+      <label>Ventanas para liberar<input name="n_off" type="number" step="1" min="1" max="50"></label>
+    </form>
+    <div class="row"><button class="primary" id="det-save">Guardar umbrales</button><span class="msg" id="det-msg"></span></div>
+    <p class="note">Cada ventana dura 0.2 s. Los cambios se guardan en la placa y se mantienen tras reiniciarla. Cambiar la medida recalibra el detector. Valores más altos = menos falsas alarmas pero menos sensibilidad.</p>
   </section>
 </main>
+
 <script>
 "use strict";
+// ================= utilidades =================
 const $ = (id) => document.getElementById(id);
-const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const HISTORY_S = 60, POLL_MS = 250;
-let history = [];            // {t, score, on, off, state}
-let last = null, lastOk = 0, room = null, intensity = 0, lastDecision = -1;
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString("es", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+const fmtDur = (ms) => ms < 60000 ? (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + " s" : Math.floor(ms / 60000) + " min " + Math.round(ms % 60000 / 1000) + " s";
 
-// ---------- pestañas ----------
-document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", x === b));
-  for (const t of ["map", "chart", "settings"]) $("tab-" + t).hidden = t !== b.dataset.tab;
-  if (b.dataset.tab === "settings") loadSettings();
-}));
+const MATERIALS = {
+  drywall:  {name: "Tabique / drywall", db: 4,  w: 3},
+  madera:   {name: "Madera / puerta",   db: 4,  w: 3},
+  vidrio:   {name: "Vidrio / ventana",  db: 3,  w: 2},
+  ladrillo: {name: "Ladrillo",          db: 10, w: 5},
+  concreto: {name: "Concreto",          db: 15, w: 6},
+  metal:    {name: "Metal",             db: 30, w: 6},
+};
 
-// ---------- datos ----------
-async function poll() {
-  try {
-    const r = await fetch("/api/state", {cache: "no-store"});
-    const s = await r.json();
-    last = s; lastOk = Date.now();
-    if (s.decisions !== lastDecision) {
-      lastDecision = s.decisions;
-      history.push({t: Date.now() / 1000, score: s.score, on: s.on, off: s.off, state: s.state});
-      const cut = Date.now() / 1000 - HISTORY_S;
-      while (history.length && history[0].t < cut) history.shift();
-    }
-    render(s);
-  } catch (e) { /* se muestra como "sin conexión" abajo */ }
-  if (Date.now() - lastOk > 2000) setBadge("off", "⚠ Sin conexión con la placa");
-  setTimeout(poll, POLL_MS);
+// ================= estado global =================
+let last = null, lastOk = 0, offsetMs = 0;       // offsetMs: hora local = uptime de la placa + offsetMs
+let fine = [];                                    // decisiones vistas desde que se abrió la página
+let lastDecision = -1, intensity = 0;
+let bins = [], events = [], activeEvent = null;
+let plan = null, savedPlan = null, sens = null;
+
+// ================= pestañas =================
+const tabs = ["live", "plan", "history", "detector"];
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(name) {
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", x.dataset.tab === name));
+  for (const t of tabs) $("tab-" + t).hidden = t !== name;
+  if (name === "detector") loadDetector();
+  if (name === "plan") { editor.view = null; }
+  if (name === "history") pollHistory();
 }
 
-function setBadge(cls, text) { const b = $("badge"); b.className = "badge " + cls; b.textContent = text; }
+// ================= datos de la placa =================
+async function getJSON(url) { const r = await fetch(url, {cache: "no-store"}); if (!r.ok) throw new Error(r.status); return r.json(); }
 
-function render(s) {
+async function pollState() {
+  try {
+    const s = await getJSON("/api/state");
+    last = s; lastOk = Date.now(); offsetMs = Date.now() - s.now;
+    if (s.decisions !== lastDecision) {
+      lastDecision = s.decisions;
+      fine.push({t: Date.now(), score: s.score, on: s.on, off: s.off, base: s.base, state: s.state});
+      while (fine.length && fine[0].t < Date.now() - 300000) fine.shift();
+    }
+    renderStats(s);
+  } catch (e) { /* abajo se muestra "sin conexión" */ }
+  if (Date.now() - lastOk > 2000) setBadge("off", "⚠ Sin conexión con la placa");
+  setTimeout(pollState, 250);
+}
+async function pollEvents() {
+  try { const r = await getJSON("/api/events"); events = r.events; activeEvent = r.active; renderEvents(); } catch (e) {}
+  setTimeout(pollEvents, 2000);
+}
+async function pollHistory() {
+  try { const r = await getJSON("/api/history"); bins = r.bins; renderKpis(); } catch (e) {}
+}
+setInterval(pollHistory, 10000);
+
+function setBadge(cls, text) { const b = $("badge"); b.className = "badge " + cls; b.textContent = text; }
+function renderStats(s) {
   if (s.state === "MOVIMIENTO") setBadge("motion", "● MOVIMIENTO");
   else if (s.state === "QUIETO") setBadge("quiet", "✓ QUIETO");
   else setBadge("calib", "◌ CALIBRANDO… quieto");
   $("s-rate").textContent = s.rate;
-  $("s-lost").textContent = s.source === "tx" ? String(s.lost) : "— (modo router)";
+  $("s-lost").textContent = s.source === "tx" ? String(s.lost) : "— (router)";
   $("s-rssi").textContent = s.rssi + " dBm";
   $("s-tx").textContent = s.source === "tx" ? (s.tx.ok ? `${s.tx.ip} (${s.tx.fw})` : "sin señal") : "router";
   $("s-proc").textContent = (s.proc_us / 1000).toFixed(1) + " ms";
   $("s-heap").textContent = Math.round(s.heap / 1024) + " KB";
 }
 
-// ---------- mapa ----------
-function fitCanvas(c, h) {
-  const dpr = window.devicePixelRatio || 1, w = c.clientWidth;
-  h = h || Number(c.getAttribute("height"));
-  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
-    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + "px";
+// Intensidad 0..1: 0 en la línea base, 0.5 en el umbral de activación, 1 al doble de esa distancia
+function toIntensity(score, base, on) { return on > base ? clamp((score - base) / (2 * (on - base)), 0, 1) : 0; }
+
+function renderEvents() {
+  const ul = $("events"), items = [];
+  const row = (e, active) => {
+    const pct = Math.round(toIntensity(e[2], e[3], e[4]) * 100);
+    return `<li class="${active ? "active" : ""}"><span class="t">${fmtTime(e[0] + offsetMs)}</span>
+      <span class="bar" title="intensidad máxima ${pct} %"><i style="width:${Math.max(4, pct)}%"></i></span>
+      <span class="d">${active ? "en curso · " : ""}${fmtDur(e[1])}</span></li>`;
+  };
+  if (activeEvent) items.push(row(activeEvent, true));
+  for (let i = events.length - 1; i >= 0; i--) items.push(row(events[i], false));
+  ul.innerHTML = items.length ? items.join("") : `<li class="empty" style="display:block">Sin movimiento registrado todavía.</li>`;
+  renderKpis();
+}
+function renderKpis() {
+  if (!last) return;
+  const cut = last.now - 1800000;
+  const n = events.filter((e) => e[0] >= cut).length + (activeEvent ? 1 : 0);
+  $("k-events").textContent = n;
+  const recent = bins.filter((b) => b[0] >= cut);
+  $("k-share").textContent = recent.length ? Math.round(100 * recent.reduce((a, b) => a + b[3], 0) / recent.length) + " %" : "—";
+}
+
+// ================= plano y física =================
+function normalizePlan(p) {
+  p = Object.assign({v: 2, width: 5, depth: 4, tx: [0.8, 2], rx: [4.2, 2], walls: [], furniture: []}, p || {});
+  p.walls = (p.walls || []).filter((w) => Array.isArray(w) && w.length >= 4).map((w) => [w[0], w[1], w[2], w[3], MATERIALS[w[4]] ? w[4] : "drywall"]);
+  p.furniture = (p.furniture || []).filter((f) => Array.isArray(f) && f.length >= 4);
+  return p;
+}
+const wavelength = () => 299.792458 / (2407 + 5 * (last && last.channel ? last.channel : 1));  // metros
+
+function segCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+  if (Math.abs(d) < 1e-12) return false;
+  const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
+  const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+  return t > 1e-6 && t < 1 - 1e-6 && u >= 0 && u <= 1;
+}
+function crossings(p, a, b) {
+  const out = [];
+  for (const w of p.walls) if (segCross(a[0], a[1], b[0], b[1], w[0], w[1], w[2], w[3])) out.push(w);
+  return out;
+}
+const lossDb = (p, a, b) => crossings(p, a, b).reduce((s, w) => s + MATERIALS[w[4]].db, 0);
+
+// Sensibilidad estimada por celda: geometría (exceso de camino respecto de la línea TX–RX, en
+// unidades de longitud de onda) por la atenuación de las paredes en los caminos TX→punto y punto→RX.
+function computeSensitivity(p) {
+  const lam = wavelength();
+  const cell = Math.max(0.05, Math.sqrt(p.width * p.depth / 6000));
+  const nx = Math.ceil(p.width / cell), ny = Math.ceil(p.depth / cell);
+  const vals = new Float32Array(nx * ny);
+  const [tx, ty] = p.tx, [rx, ry] = p.rx, D = Math.hypot(rx - tx, ry - ty);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const x = (i + 0.5) * cell, y = (j + 0.5) * cell;
+    const excess = Math.hypot(x - tx, y - ty) + Math.hypot(x - rx, y - ry) - D;
+    let s = Math.exp(-excess / (4 * lam));
+    if (s > 0.01 && p.walls.length) s *= Math.pow(10, -(lossDb(p, p.tx, [x, y]) + lossDb(p, [x, y], p.rx)) / 20);
+    vals[j * nx + i] = s;
   }
+  return {nx, ny, cell, vals, lam, planKey: JSON.stringify([p.width, p.depth, p.tx, p.rx, p.walls]), off: document.createElement("canvas")};
+}
+function ensureSens() {
+  const key = JSON.stringify([plan.width, plan.depth, plan.tx, plan.rx, plan.walls]);
+  if (!sens || sens.planKey !== key || Math.abs(sens.lam - wavelength()) > 1e-4) sens = computeSensitivity(plan);
+  return sens;
+}
+
+// Ruido suave (solo visual) para que la zona "respire" sin sugerir una posición
+function shimmer(i, j, t) { return 0.5 + 0.25 * Math.sin(i * 0.37 + t * 1.3) * Math.sin(j * 0.29 - t * 1.1) + 0.25 * Math.sin((i + j) * 0.11 + t * 0.7); }
+
+function paintLayer(sn, mode, t) {
+  const {nx, ny, vals, off} = sn;
+  if (off.width !== nx) { off.width = nx; off.height = ny; }
+  const g = off.getContext("2d"), img = g.createImageData(nx, ny), d = img.data;
+  const [r, gg, b] = css("--activity").split(",").map(Number);
+  const pulse = 0.85 + 0.15 * Math.sin(t * 5.5);
+  for (let k = 0; k < vals.length; k++) {
+    const s = vals[k];
+    let a;
+    if (mode === "sens") a = 0.55 * s;                                          // editor: sensibilidad estimada
+    else a = s * (0.06 * ($("sens-show").checked ? 1 : 0) + 0.9 * intensity * pulse * (0.7 + 0.6 * shimmer(k % nx, (k / nx) | 0, t)));
+    d[4 * k] = r; d[4 * k + 1] = gg; d[4 * k + 2] = b; d[4 * k + 3] = clamp(a, 0, 0.95) * 255;
+  }
+  g.putImageData(img, 0, 0);
+  return off;
+}
+
+// ================= vista (zoom / desplazamiento) =================
+function fitView(canvas, p, pad = 26) {
+  const W = canvas.clientWidth, H = canvas.clientHeight || Number(canvas.getAttribute("height"));
+  const scale = Math.min((W - 2 * pad) / p.width, (H - 2 * pad) / p.depth);
+  return {scale, ox: (W - p.width * scale) / 2, oy: (H - p.depth * scale) / 2};
+}
+// Siempre con alto explícito: si no, el lienzo crece con su propio tamaño interno
+function prepCanvas(c, h) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth;
+  if (c.style.height !== h + "px") c.style.height = h + "px";
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
   const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return [ctx, w, h];
 }
 
-function targetIntensity(s) {
-  if (!s || s.state === "CALIBRANDO" || !(s.on > s.base)) return 0;
-  // 0 en la línea base, 0.5 justo en el umbral de activación, 1 al doble de esa distancia
-  return Math.max(0, Math.min(1, (s.score - s.base) / (2 * (s.on - s.base))));
-}
-
-function drawMap(now) {
-  if (!room) return;
-  const pad = 22, cw = $("map").clientWidth;
-  // Alto según la forma del cuarto: sin espacio vacío en pantallas angostas
-  const [ctx, W, H] = fitCanvas($("map"), Math.round(Math.min(520, (cw - 2 * pad) * room.depth / room.width + 2 * pad)));
+// ================= dibujo del plano =================
+function drawPlan(ctx, W, H, v, p, opt) {
+  const X = (m) => v.ox + m * v.scale, Y = (m) => v.oy + m * v.scale, S = v.scale;
   ctx.clearRect(0, 0, W, H);
-  const sc = Math.min((W - 2 * pad) / room.width, (H - 2 * pad) / room.depth);
-  const ox = (W - room.width * sc) / 2, oy = (H - room.depth * sc) / 2;
-  const X = (m) => ox + m * sc, Y = (m) => oy + m * sc;
-
-  // piso y cuadrícula de 1 m
-  ctx.fillStyle = css("--surface-1"); ctx.fillRect(X(0), Y(0), room.width * sc, room.depth * sc);
-  ctx.strokeStyle = css("--grid"); ctx.lineWidth = 1; ctx.beginPath();
-  for (let x = 1; x < room.width; x++) { ctx.moveTo(X(x), Y(0)); ctx.lineTo(X(x), Y(room.depth)); }
-  for (let y = 1; y < room.depth; y++) { ctx.moveTo(X(0), Y(y)); ctx.lineTo(X(room.width), Y(y)); }
+  ctx.fillStyle = css("--surface-1"); ctx.fillRect(X(0), Y(0), p.width * S, p.depth * S);
+  // cuadrícula: 1 m, y 0.5 m si hay zoom suficiente
+  ctx.lineWidth = 1;
+  if (S > 70) { ctx.strokeStyle = css("--grid-fine"); ctx.beginPath();
+    for (let x = 0.5; x < p.width; x += 1) { ctx.moveTo(X(x), Y(0)); ctx.lineTo(X(x), Y(p.depth)); }
+    for (let y = 0.5; y < p.depth; y += 1) { ctx.moveTo(X(0), Y(y)); ctx.lineTo(X(p.width), Y(y)); } ctx.stroke(); }
+  ctx.strokeStyle = css("--grid"); ctx.beginPath();
+  for (let x = 1; x < p.width; x++) { ctx.moveTo(X(x), Y(0)); ctx.lineTo(X(x), Y(p.depth)); }
+  for (let y = 1; y < p.depth; y++) { ctx.moveTo(X(0), Y(y)); ctx.lineTo(X(p.width), Y(y)); }
   ctx.stroke();
 
-  ctx.save(); ctx.beginPath(); ctx.rect(X(0), Y(0), room.width * sc, room.depth * sc); ctx.clip();
-  const [tx, ty] = room.tx, [rx, ry] = room.rx;
-  const D = Math.hypot(rx - tx, ry - ty);
-  const ch = last && last.channel ? last.channel : 1;
-  const lambda = 299.792458 / (2407 + 5 * ch);      // metros
-  intensity += (targetIntensity(last) - intensity) * 0.15;   // transición suave
+  // capa de sensibilidad / actividad
+  const sn = ensureSens();
+  const layer = paintLayer(sn, opt.mode, opt.t / 1000);
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(layer, X(0), Y(0), sn.nx * sn.cell * S, sn.ny * sn.cell * S); ctx.restore();
 
-  // zonas de Fresnel: elipses con focos en TX y RX; la n-ésima cumple d1 + d2 = D + n·λ/2
-  const rot = Math.atan2(ry - ty, rx - tx), cx = (tx + rx) / 2, cy = (ty + ry) / 2;
-  const act = css("--activity");
-  for (let n = 16; n >= 1; n--) {
-    const a = (D + n * lambda / 2) / 2, b = Math.sqrt(Math.max(a * a - (D / 2) ** 2, 0));
-    const w = Math.pow(n, -0.6);                   // las zonas internas pesan más
-    ctx.beginPath(); ctx.ellipse(X(cx), Y(cy), a * sc, b * sc, rot, 0, 2 * Math.PI);
-    ctx.fillStyle = `rgba(${act}, ${0.006 + 0.2 * intensity * w})`; ctx.fill();
+  // muebles
+  for (const [i, f] of p.furniture.entries()) {
+    const sel = opt.sel && opt.sel.kind === "furniture" && opt.sel.i === i;
+    ctx.fillStyle = css("--furniture"); ctx.strokeStyle = sel ? css("--series-1") : css("--furniture-edge"); ctx.lineWidth = sel ? 2 : 1;
+    ctx.globalAlpha = 0.85; ctx.fillRect(X(f[0]), Y(f[1]), f[2] * S, f[3] * S); ctx.globalAlpha = 1;
+    ctx.strokeRect(X(f[0]), Y(f[1]), f[2] * S, f[3] * S);
+    if (f[4] && f[2] * S > 40) { ctx.fillStyle = css("--text-secondary"); ctx.font = "12px system-ui"; ctx.textAlign = "center";
+      ctx.fillText(f[4], X(f[0] + f[2] / 2), Y(f[1] + f[3] / 2) + 4); }
   }
-  const a1 = (D + lambda / 2) / 2, b1 = Math.sqrt(Math.max(a1 * a1 - (D / 2) ** 2, 0));
-  ctx.beginPath(); ctx.ellipse(X(cx), Y(cy), a1 * sc, b1 * sc, rot, 0, 2 * Math.PI);
-  ctx.strokeStyle = `rgba(${act}, 0.7)`; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
 
-  // ondas decorativas desde el transmisor
-  if ($("waves").checked) {
-    const maxR = Math.hypot(room.width, room.depth);
+  // ondas decorativas desde el TX
+  if (opt.waves) {
+    const maxR = Math.hypot(p.width, p.depth), act = css("--activity");
+    ctx.save(); ctx.beginPath(); ctx.rect(X(0), Y(0), p.width * S, p.depth * S); ctx.clip();
     for (let k = 0; k < 5; k++) {
-      const r = ((now / 1000 * 0.6 + k / 5) % 1) * maxR;
-      ctx.beginPath(); ctx.arc(X(tx), Y(ty), r * sc, 0, 2 * Math.PI);
-      ctx.strokeStyle = `rgba(${act}, ${0.25 * (1 - r / maxR)})`; ctx.lineWidth = 1.5; ctx.stroke();
+      const r = ((opt.t / 1000 * 0.5 + k / 5) % 1) * maxR;
+      ctx.beginPath(); ctx.arc(X(p.tx[0]), Y(p.tx[1]), r * S, 0, 2 * Math.PI);
+      ctx.strokeStyle = `rgba(${act}, ${0.22 * (1 - r / maxR)})`; ctx.lineWidth = 1.5; ctx.stroke();
     }
+    ctx.restore();
   }
-  ctx.restore();
 
-  // paredes
-  ctx.strokeStyle = css("--wall"); ctx.lineWidth = 2; ctx.strokeRect(X(0), Y(0), room.width * sc, room.depth * sc);
+  // línea TX–RX y primera zona de Fresnel
+  const [tx, ty] = p.tx, [rx, ry] = p.rx, D = Math.hypot(rx - tx, ry - ty), lam = sn.lam;
+  const a1 = (D + lam / 2) / 2, b1 = Math.sqrt(Math.max(a1 * a1 - D * D / 4, 0));
+  ctx.beginPath(); ctx.ellipse(X((tx + rx) / 2), Y((ty + ry) / 2), a1 * S, b1 * S, Math.atan2(ry - ty, rx - tx), 0, 2 * Math.PI);
+  ctx.strokeStyle = `rgba(${css("--activity")}, 0.8)`; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+
+  // paredes (grosor según material)
+  for (const [i, w] of p.walls.entries()) {
+    const m = MATERIALS[w[4]], sel = opt.sel && opt.sel.kind === "wall" && opt.sel.i === i;
+    if (sel) { ctx.strokeStyle = css("--accent-ring"); ctx.lineWidth = m.w + 8; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(X(w[0]), Y(w[1])); ctx.lineTo(X(w[2]), Y(w[3])); ctx.stroke(); }
+    ctx.strokeStyle = css("--wall"); ctx.lineWidth = m.w; ctx.lineCap = "round";
+    if (w[4] === "vidrio") ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(X(w[0]), Y(w[1])); ctx.lineTo(X(w[2]), Y(w[3])); ctx.stroke(); ctx.setLineDash([]);
+    if (w[4] === "metal") { ctx.strokeStyle = css("--surface-1"); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(w[0]), Y(w[1])); ctx.lineTo(X(w[2]), Y(w[3])); ctx.stroke(); }
+    if (opt.editor) for (const k of [0, 2]) { ctx.beginPath(); ctx.arc(X(w[k]), Y(w[k + 1]), 3.5, 0, 2 * Math.PI); ctx.fillStyle = css("--surface-1"); ctx.fill(); ctx.strokeStyle = css("--wall"); ctx.lineWidth = 1.5; ctx.stroke(); }
+  }
+  // marcas donde la línea TX–RX cruza una pared
+  for (const w of p.walls) {
+    const d = (rx - tx) * (w[3] - w[1]) - (ry - ty) * (w[2] - w[0]); if (Math.abs(d) < 1e-12) continue;
+    const t = ((w[0] - tx) * (w[3] - w[1]) - (w[1] - ty) * (w[2] - w[0])) / d;
+    if (!segCross(tx, ty, rx, ry, w[0], w[1], w[2], w[3])) continue;
+    const cx = X(tx + t * (rx - tx)), cy = Y(ty + t * (ry - ty));
+    ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 2 * Math.PI); ctx.fillStyle = css("--critical"); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center"; ctx.fillText("!", cx, cy + 3.5);
+  }
+  // borde del área
+  ctx.strokeStyle = css("--border"); ctx.lineWidth = 1; ctx.strokeRect(X(0), Y(0), p.width * S, p.depth * S);
 
   // equipos
-  const text = css("--text-primary"), muted = css("--text-secondary");
-  const device = (p, label, color) => {
-    if (!p) return;
-    ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), 7, 0, 2 * Math.PI);
+  const dev = (pt, label, key, color) => {
+    if (!pt) return;
+    const hot = opt.hover === key || (opt.sel && opt.sel.kind === key);
+    if (hot) { ctx.beginPath(); ctx.arc(X(pt[0]), Y(pt[1]), 14, 0, 2 * Math.PI); ctx.fillStyle = css("--accent-ring"); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(X(pt[0]), Y(pt[1]), 8, 0, 2 * Math.PI);
     ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = css("--surface-1"); ctx.stroke();
-    ctx.fillStyle = text; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(label, X(p[0]), Y(p[1]) - 12);
+    ctx.font = "600 12px system-ui"; ctx.textAlign = "center"; ctx.lineWidth = 3; ctx.strokeStyle = css("--surface-1");
+    ctx.strokeText(label, X(pt[0]), Y(pt[1]) - 14); ctx.fillStyle = css("--text-primary"); ctx.fillText(label, X(pt[0]), Y(pt[1]) - 14);
   };
-  device(room.router, "Router", muted);
-  device(room.tx, "TX", css("--series-1"));
-  device(room.rx, "RX", css("--series-1"));
+  dev(p.router, "Router", "router", css("--text-muted"));
+  dev(p.tx, "TX", "tx", css("--series-1"));
+  dev(p.rx, "RX", "rx", css("--series-1"));
 
-  $("map-scale").textContent = `${room.width} × ${room.depth} m · cuadrícula 1 m · TX–RX ${D.toFixed(1)} m · canal ${ch}`;
-  $("map-int").textContent = `Intensidad ${Math.round(intensity * 100)} %`;
+  // barra de escala de 1 m
+  ctx.strokeStyle = css("--text-secondary"); ctx.lineWidth = 2; ctx.beginPath();
+  const bx = X(0), by = Y(p.depth) + 14; ctx.moveTo(bx, by); ctx.lineTo(bx + S, by); ctx.stroke();
+  ctx.fillStyle = css("--text-secondary"); ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.fillText("1 m", bx + S + 6, by + 4);
 }
 
-// ---------- gráfica del índice ----------
-let hoverX = null;
-$("chart").addEventListener("pointermove", (e) => { hoverX = e.offsetX; });
-$("chart").addEventListener("pointerleave", () => { hoverX = null; $("tip").style.display = "none"; });
-
-function drawChart() {
-  const [ctx, W, H] = fitCanvas($("chart"));
+// ================= en vivo =================
+const liveCanvas = $("live-map");
+function drawLive(t) {
+  if (!plan) return;
+  const w = liveCanvas.clientWidth, h = Math.round(clamp((w - 52) * plan.depth / plan.width + 52, 220, 560));
+  const [ctx, W, H] = prepCanvas(liveCanvas, h);
+  const target = last && last.state !== "CALIBRANDO" ? toIntensity(last.score, last.base, last.on) : 0;
+  intensity += (target - intensity) * 0.12;
+  drawPlan(ctx, W, H, fitView(liveCanvas, plan), plan, {mode: "live", t, waves: $("waves").checked});
+  $("live-int").textContent = `Intensidad ${Math.round(intensity * 100)} %`;
+  drawStrip();
+}
+function drawStrip() {
+  const [ctx, W, H] = prepCanvas($("strip"), 46);
   ctx.clearRect(0, 0, W, H);
-  const L = 48, R = 12, T = 10, B = 28, now = Date.now() / 1000;
-  const pts = history.filter((p) => p.state !== "CALIBRANDO");
-  const ymax = Math.max(0.05, ...history.map((p) => Math.max(p.score, p.on || 0))) * 1.15;
-  const X = (t) => L + (1 - (now - t) / HISTORY_S) * (W - L - R);
-  const Y = (v) => T + (1 - v / ymax) * (H - T - B);
+  const now = Date.now(), span = 60000, act = css("--activity");
+  ctx.fillStyle = css("--surface-2"); ctx.fillRect(0, 0, W, H);
+  const pts = fine.filter((p) => p.t > now - span);
+  const bw = Math.max(2, W / (span / 200));
+  for (const p of pts) {
+    const I = p.state === "CALIBRANDO" ? 0 : toIntensity(p.score, p.base, p.on);
+    const x = (1 - (now - p.t) / span) * W, h = Math.max(2, I * (H - 6));
+    ctx.fillStyle = p.state === "MOVIMIENTO" ? css("--critical") : `rgba(${act}, ${0.35 + 0.65 * I})`;
+    ctx.fillRect(x - bw, H - h, bw, h);
+  }
+  ctx.fillStyle = css("--text-muted"); ctx.font = "10px system-ui"; ctx.textAlign = "left"; ctx.fillText("−60 s", 4, 11);
+  ctx.textAlign = "right"; ctx.fillText("ahora", W - 4, 11);
+}
 
-  // tramos en MOVIMIENTO
-  ctx.fillStyle = css("--motion-span");
-  for (let i = 0; i < history.length; i++) if (history[i].state === "MOVIMIENTO") {
-    const x0 = X(history[i].t), x1 = i + 1 < history.length ? X(history[i + 1].t) : X(now);
-    ctx.fillRect(x0, T, Math.max(1, x1 - x0), H - T - B);
+// ================= editor del plano =================
+const editor = {tool: "select", view: null, drag: null, hover: null, sel: null, undo: [], pointers: new Map(), preview: null};
+const planCanvas = $("plan-map");
+for (const [k, m] of Object.entries(MATERIALS)) $("material").insertAdjacentHTML("beforeend", `<option value="${k}">${m.name} (−${m.db} dB)</option>`);
+$("material").value = "drywall";
+$("materials").innerHTML = Object.values(MATERIALS).map((m) => `<li><span style="display:inline-block;width:26px;height:${m.w}px;background:var(--wall);margin-top:8px;border-radius:2px"></span>${m.name}<span style="margin-left:auto;color:var(--text-muted)">−${m.db} dB</span></li>`).join("");
+
+document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => {
+  editor.tool = b.dataset.tool; editor.sel = null;
+  document.querySelectorAll("[data-tool]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+}));
+const snap = (v) => Math.round(v * 10) / 10;
+function toWorld(e) {
+  const r = planCanvas.getBoundingClientRect(), v = editor.view;
+  return [(e.clientX - r.left - v.ox) / v.scale, (e.clientY - r.top - v.oy) / v.scale];
+}
+function pushUndo() { editor.undo.push(JSON.stringify(plan)); if (editor.undo.length > 60) editor.undo.shift(); markDirty(); }
+function markDirty() { const d = JSON.stringify(plan) !== JSON.stringify(savedPlan); $("dirty").textContent = d ? "● Cambios sin guardar" : "Guardado en la placa"; }
+function distSeg(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy, t = L ? clamp(((px - ax) * dx + (py - ay) * dy) / L, 0, 1) : 0;
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+}
+function hit(pt) {
+  const tol = 12 / editor.view.scale;
+  for (const k of ["tx", "rx", "router"]) if (plan[k] && Math.hypot(pt[0] - plan[k][0], pt[1] - plan[k][1]) < tol) return {kind: k};
+  for (let i = plan.walls.length - 1; i >= 0; i--) { const w = plan.walls[i];
+    for (const e of [0, 2]) if (Math.hypot(pt[0] - w[e], pt[1] - w[e + 1]) < tol * 0.8) return {kind: "wall", i, end: e};
+    if (distSeg(pt[0], pt[1], w[0], w[1], w[2], w[3]) < tol * 0.6) return {kind: "wall", i}; }
+  for (let i = plan.furniture.length - 1; i >= 0; i--) { const f = plan.furniture[i];
+    if (pt[0] >= f[0] && pt[0] <= f[0] + f[2] && pt[1] >= f[1] && pt[1] <= f[1] + f[3]) return {kind: "furniture", i}; }
+  return null;
+}
+// Ajusta al extremo de pared más cercano; si no, a la cuadrícula de 10 cm
+function snapPoint(pt, skip) {
+  const tol = 12 / editor.view.scale;
+  for (const [i, w] of plan.walls.entries()) for (const e of [0, 2]) {
+    if (skip && skip.i === i && skip.end === e) continue;
+    if (Math.hypot(pt[0] - w[e], pt[1] - w[e + 1]) < tol) return [w[e], w[e + 1]];
   }
-  // ejes y cuadrícula
-  ctx.strokeStyle = css("--grid"); ctx.fillStyle = css("--text-muted"); ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const v = ymax * i / 4, y = Y(v);
-    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke();
-    ctx.textAlign = "right"; ctx.fillText(v.toFixed(3), L - 6, y + 4);
+  return [clamp(snap(pt[0]), 0, plan.width), clamp(snap(pt[1]), 0, plan.depth)];
+}
+function orthogonal(a, b) {       // si la pared está casi horizontal/vertical, la endereza
+  const ang = Math.abs(Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI);   // 0..180
+  if (ang < 8 || ang > 172) return [b[0], a[1]];          // casi horizontal
+  if (Math.abs(ang - 90) < 8) return [a[0], b[1]];        // casi vertical
+  return b;
+}
+
+planCanvas.addEventListener("pointerdown", (e) => {
+  planCanvas.setPointerCapture(e.pointerId);
+  editor.pointers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (editor.pointers.size === 2) { editor.drag = {type: "pinch", dist: pinchDist(), scale: editor.view.scale}; return; }
+  const pt = toWorld(e), h = hit(pt);
+  if (editor.tool === "erase") {
+    if (h && (h.kind === "wall" || h.kind === "furniture")) { pushUndo(); plan[h.kind === "wall" ? "walls" : "furniture"].splice(h.i, 1); markDirty(); }
+    return;
   }
+  if (editor.tool === "wall") { const a = snapPoint(pt); editor.drag = {type: "newwall", a}; editor.preview = [a, a]; return; }
+  if (editor.tool === "furniture") { const a = snapPoint(pt); editor.drag = {type: "newfurn", a}; editor.preview = [a, a]; return; }
+  editor.sel = h;
+  if (h && h.kind === "wall" && h.end === undefined) $("material").value = plan.walls[h.i][4];
+  if (h) { pushUndo(); editor.drag = {type: "move", h, start: pt, orig: JSON.parse(JSON.stringify(plan))}; }
+  else editor.drag = {type: "pan", x: e.clientX, y: e.clientY, ox: editor.view.ox, oy: editor.view.oy};
+});
+planCanvas.addEventListener("pointermove", (e) => {
+  if (!editor.view || !plan) return;
+  if (editor.pointers.has(e.pointerId)) editor.pointers.set(e.pointerId, [e.clientX, e.clientY]);
+  const pt = toWorld(e), d = editor.drag;
+  $("cursor").textContent = `x ${pt[0].toFixed(2)} m · y ${pt[1].toFixed(2)} m`;
+  if (!d) { const h = hit(pt); editor.hover = h ? h.kind : null; planCanvas.style.cursor = editor.tool !== "select" ? "crosshair" : h ? "grab" : "default"; return; }
+  if (d.type === "pinch" && editor.pointers.size === 2) { zoomAt(null, d.scale * pinchDist() / d.dist / editor.view.scale); return; }
+  if (d.type === "pan") { editor.view.ox = d.ox + e.clientX - d.x; editor.view.oy = d.oy + e.clientY - d.y; return; }
+  if (d.type === "newwall") { editor.preview = [d.a, orthogonal(d.a, snapPoint(pt))]; return; }
+  if (d.type === "newfurn") { editor.preview = [d.a, snapPoint(pt)]; return; }
+  if (d.type === "move") {
+    const dx = pt[0] - d.start[0], dy = pt[1] - d.start[1], h = d.h, o = d.orig;
+    if (["tx", "rx", "router"].includes(h.kind)) plan[h.kind] = [clamp(snap(o[h.kind][0] + dx), 0, plan.width), clamp(snap(o[h.kind][1] + dy), 0, plan.depth)];
+    else if (h.kind === "wall" && h.end !== undefined) { const p = snapPoint(pt, h); plan.walls[h.i][h.end] = p[0]; plan.walls[h.i][h.end + 1] = p[1]; }
+    else if (h.kind === "wall") { const w = o.walls[h.i]; plan.walls[h.i] = [snap(w[0] + dx), snap(w[1] + dy), snap(w[2] + dx), snap(w[3] + dy), w[4]]; }
+    else if (h.kind === "furniture") { const f = o.furniture[h.i]; plan.furniture[h.i] = [snap(f[0] + dx), snap(f[1] + dy), f[2], f[3], f[4]]; }
+    markDirty();
+  }
+});
+function endPointer(e) {
+  editor.pointers.delete(e.pointerId);
+  const d = editor.drag; editor.drag = null;
+  if (!d) return;
+  if (d.type === "newwall" && editor.preview) {
+    const [a, b] = editor.preview;
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) >= 0.1) { pushUndo(); plan.walls.push([a[0], a[1], b[0], b[1], $("material").value]); markDirty(); }
+  }
+  if (d.type === "newfurn" && editor.preview) {
+    const [a, b] = editor.preview, x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]), w = Math.abs(b[0] - a[0]), h = Math.abs(b[1] - a[1]);
+    if (w >= 0.1 && h >= 0.1) { pushUndo(); plan.furniture.push([x, y, snap(w), snap(h), $("furn-label").value.slice(0, 20)]); markDirty(); }
+  }
+  if (d.type === "move" && JSON.stringify(d.orig) === JSON.stringify(plan)) editor.undo.pop();
+  editor.preview = null;
+}
+planCanvas.addEventListener("pointerup", endPointer);
+planCanvas.addEventListener("pointercancel", endPointer);
+planCanvas.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e, e.deltaY < 0 ? 1.15 : 1 / 1.15); }, {passive: false});
+function pinchDist() { const [a, b] = [...editor.pointers.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+function zoomAt(e, f) {
+  const v = editor.view, r = planCanvas.getBoundingClientRect();
+  const cx = e ? e.clientX - r.left : planCanvas.clientWidth / 2, cy = e ? e.clientY - r.top : planCanvas.clientHeight / 2;
+  const ns = clamp(v.scale * f, 10, 600);
+  v.ox = cx - (cx - v.ox) * ns / v.scale; v.oy = cy - (cy - v.oy) * ns / v.scale; v.scale = ns;
+}
+$("zoom-in").onclick = () => zoomAt(null, 1.25);
+$("zoom-out").onclick = () => zoomAt(null, 0.8);
+$("fit").onclick = () => { editor.view = fitView(planCanvas, plan); };
+$("undo").onclick = undo;
+document.addEventListener("keydown", (e) => {
+  if ($("tab-plan").hidden) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
+  if ((e.key === "Delete" || e.key === "Backspace") && editor.sel && ["wall", "furniture"].includes(editor.sel.kind) && document.activeElement.tagName !== "INPUT") {
+    pushUndo(); plan[editor.sel.kind === "wall" ? "walls" : "furniture"].splice(editor.sel.i, 1); editor.sel = null; markDirty(); }
+});
+function undo() { if (!editor.undo.length) return; plan = JSON.parse(editor.undo.pop()); editor.sel = null; syncSize(); markDirty(); }
+$("material").addEventListener("change", () => {
+  if (editor.sel && editor.sel.kind === "wall" && editor.sel.end === undefined) { pushUndo(); plan.walls[editor.sel.i][4] = $("material").value; markDirty(); }
+});
+function syncSize() { $("pw").value = plan.width; $("pd").value = plan.depth; }
+for (const id of ["pw", "pd"]) $(id).addEventListener("change", () => {
+  const w = clamp(Number($("pw").value) || plan.width, 1, 30), d = clamp(Number($("pd").value) || plan.depth, 1, 30);
+  pushUndo(); plan.width = w; plan.depth = d;
+  for (const k of ["tx", "rx", "router"]) if (plan[k]) plan[k] = [Math.min(plan[k][0], w), Math.min(plan[k][1], d)];
+  editor.view = fitView(planCanvas, plan); markDirty();
+});
+$("plan-save").onclick = async () => {
+  const msg = $("plan-msg"); msg.textContent = "Guardando…";
+  try {
+    const r = await fetch("/api/room", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(plan)});
+    if (r.ok) { savedPlan = JSON.parse(JSON.stringify(plan)); msg.textContent = "✓ Guardado"; markDirty(); }
+    else msg.textContent = "✗ " + await r.text();
+  } catch (e) { msg.textContent = "✗ Sin conexión"; }
+};
+$("plan-revert").onclick = () => { if (!savedPlan) return; pushUndo(); plan = JSON.parse(JSON.stringify(savedPlan)); syncSize(); markDirty(); };
+
+function drawEditor(t) {
+  if (!plan) return;
+  const w = planCanvas.clientWidth, h = Math.round(clamp(w * 0.72, 300, 620));
+  const [ctx, W, H] = prepCanvas(planCanvas, h);
+  if (!editor.view) editor.view = fitView(planCanvas, plan);
+  drawPlan(ctx, W, H, editor.view, plan, {mode: "sens", t, editor: true, hover: editor.hover, sel: editor.sel});
+  if (editor.preview) {
+    const v = editor.view, X = (m) => v.ox + m * v.scale, Y = (m) => v.oy + m * v.scale, [a, b] = editor.preview;
+    ctx.strokeStyle = css("--series-1"); ctx.setLineDash([6, 4]); ctx.lineWidth = 2;
+    if (editor.drag && editor.drag.type === "newfurn") ctx.strokeRect(X(Math.min(a[0], b[0])), Y(Math.min(a[1], b[1])), Math.abs(b[0] - a[0]) * v.scale, Math.abs(b[1] - a[1]) * v.scale);
+    else { ctx.beginPath(); ctx.moveTo(X(a[0]), Y(a[1])); ctx.lineTo(X(b[0]), Y(b[1])); ctx.stroke();
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]); ctx.fillStyle = css("--text-primary"); ctx.font = "12px system-ui"; ctx.textAlign = "left";
+      ctx.fillText(len.toFixed(1) + " m", X(b[0]) + 8, Y(b[1]) - 8); }
+    ctx.setLineDash([]);
+  }
+  renderChecks();
+}
+
+let checksKey = "";
+function renderChecks() {
+  const key = JSON.stringify([plan, last && last.channel]); if (key === checksKey) return; checksKey = key;
+  const lam = wavelength(), D = Math.hypot(plan.rx[0] - plan.tx[0], plan.rx[1] - plan.tx[1]);
+  const cross = crossings(plan, plan.tx, plan.rx), loss = cross.reduce((s, w) => s + MATERIALS[w[4]].db, 0);
+  const r1 = Math.sqrt(lam * D) / 2;
+  const nearMetal = plan.walls.some((w) => w[4] === "metal" && Math.min(
+    distSeg(w[0], w[1], plan.tx[0], plan.tx[1], plan.rx[0], plan.rx[1]), distSeg(w[2], w[3], plan.tx[0], plan.tx[1], plan.rx[0], plan.rx[1]),
+    distSeg(plan.tx[0], plan.tx[1], w[0], w[1], w[2], w[3]), distSeg(plan.rx[0], plan.rx[1], w[0], w[1], w[2], w[3])) < 0.5);
+  const items = [];
+  const add = (cls, icon, text) => items.push(`<li><span class="${cls}">${icon}</span><span>${text}</span></li>`);
+  if (D < 1.5) add("warn", "⚠", `TX y RX están a ${D.toFixed(1)} m: muy cerca, la zona sensible queda chica. Lo ideal es 2–5 m.`);
+  else if (D > 6) add("warn", "⚠", `TX y RX están a ${D.toFixed(1)} m: lejos, la señal llega débil. Lo ideal es 2–5 m.`);
+  else add("ok", "✓", `Distancia TX–RX: ${D.toFixed(1)} m (ideal 2–5 m).`);
+  add("ok", "ℹ", `Zona más sensible: hasta ~${(r1 * 100).toFixed(0)} cm a cada lado de la línea TX–RX en el centro (1.ª zona de Fresnel, canal ${last && last.channel ? last.channel : 1}).`);
+  if (!cross.length) add("ok", "✓", "La línea TX–RX no cruza paredes.");
+  else add(loss >= 8 ? "bad" : "warn", loss >= 8 ? "✕" : "⚠", `La línea TX–RX cruza ${cross.length} pared${cross.length > 1 ? "es" : ""} (−${loss} dB): ${loss >= 8 ? "perderás mucha sensibilidad; mueve las placas para que se vean sin paredes de por medio." : "algo de pérdida, aceptable."}`);
+  if (nearMetal) add("bad", "✕", "Hay metal a menos de 50 cm del enlace: produce reflejos fuertes y zonas ciegas.");
+  add("ok", "ℹ", "Pon ambas placas a ~1 m de altura, lejos de metales y con las antenas sin tapar.");
+  $("checks").innerHTML = items.join("");
+}
+
+// ================= historial =================
+let range = 60, hoverX = null;
+document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => {
+  range = Number(b.dataset.range);
+  document.querySelectorAll("[data-range]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  pollHistory();
+}));
+const chart = $("chart");
+chart.addEventListener("pointermove", (e) => { hoverX = e.offsetX; });
+chart.addEventListener("pointerleave", () => { hoverX = null; $("tip").style.display = "none"; });
+
+function historySeries() {
+  const now = Date.now(), cut = now - range * 1000;
+  if (range <= 300) {   // alta resolución: decisiones vistas desde que se abrió la página
+    $("range-note").textContent = range === 60 ? "5 decisiones por segundo" : "5 decisiones por segundo (desde que abriste la página)";
+    $("leg-series").textContent = "Índice de movimiento";
+    return fine.filter((p) => p.t >= cut).map((p) => ({t: p.t, v: p.score, on: p.on, off: p.off, motion: p.state === "MOVIMIENTO" ? 1 : 0, calib: p.state === "CALIBRANDO"}));
+  }
+  $("range-note").textContent = "bloques de 10 s guardados en la placa";
+  $("leg-series").textContent = "Índice máximo por bloque de 10 s";
+  const on = last ? last.on : 0, off = last ? last.off : 0;
+  return bins.map((b) => ({t: b[0] + offsetMs, v: b[1], mean: b[2], on, off, motion: b[3], calib: false})).filter((p) => p.t >= cut);
+}
+function drawChart() {
+  const [ctx, W, H] = prepCanvas(chart, 320);
+  ctx.clearRect(0, 0, W, H);
+  const L = 52, R = 12, T = 10, B = 28, now = Date.now(), span = range * 1000;
+  const pts = historySeries();
+  const ymax = Math.max(0.05, ...pts.map((p) => Math.max(p.v, p.on || 0))) * 1.15;
+  const X = (t) => L + (1 - (now - t) / span) * (W - L - R), Y = (v) => T + (1 - v / ymax) * (H - T - B);
+  const step = range <= 300 ? 200 : 10000;
+  for (const p of pts) if (p.motion > 0) {
+    ctx.fillStyle = css("--motion-span"); ctx.globalAlpha = range <= 300 ? 1 : clamp(0.3 + p.motion, 0, 1);
+    const x1 = X(p.t), x0 = X(p.t - step); ctx.fillRect(x0, T, Math.max(1, x1 - x0), H - T - B); ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = css("--grid"); ctx.fillStyle = css("--text-muted"); ctx.font = "11px system-ui"; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const v = ymax * i / 4, y = Y(v);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(v.toFixed(3), L - 6, y + 4); }
   ctx.textAlign = "center";
-  for (let s = 0; s <= HISTORY_S; s += 10) ctx.fillText(s === 0 ? "ahora" : `−${s} s`, X(now - s), H - 8);
-
-  const line = (key, color, dash) => {
+  const tickS = range === 60 ? 10 : range === 300 ? 60 : 300;
+  for (let s = 0; s <= range; s += tickS) {
+    ctx.textAlign = s === 0 ? "right" : s === range ? "left" : "center";
+    ctx.fillText(s === 0 ? "ahora" : s < 60 ? `−${s} s` : `−${s / 60} min`, X(now - s * 1000), H - 8);
+  }
+  // eventos de la placa como marcas arriba
+  ctx.fillStyle = css("--critical");
+  for (const ev of events.concat(activeEvent ? [activeEvent] : [])) { const x = X(ev[0] + offsetMs); if (x >= L) ctx.fillRect(x - 1, T, 2, 6); }
+  const line = (key, color, dash, filter) => {
     ctx.beginPath(); let started = false;
-    for (const p of (key === "score" ? history : pts)) {
-      const x = X(p.t), y = Y(p[key]);
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-    }
+    for (const p of pts) { if (filter && !filter(p)) continue; const x = X(p.t), y = Y(p[key]);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); }
     ctx.strokeStyle = color; ctx.lineWidth = dash ? 1.5 : 2; ctx.setLineDash(dash ? [5, 4] : []); ctx.stroke(); ctx.setLineDash([]);
   };
-  line("on", css("--critical"), true);
-  line("off", css("--good"), true);
-  line("score", css("--series-1"), false);
-
-  // crosshair + tooltip
+  line("on", css("--critical"), true, (p) => !p.calib);
+  line("off", css("--good"), true, (p) => !p.calib);
+  line("v", css("--series-1"), false);
   const tip = $("tip");
-  if (hoverX !== null && history.length) {
-    let best = history[0];
-    for (const p of history) if (Math.abs(X(p.t) - hoverX) < Math.abs(X(best.t) - hoverX)) best = p;
+  if (hoverX !== null && pts.length) {
+    let best = pts[0]; for (const p of pts) if (Math.abs(X(p.t) - hoverX) < Math.abs(X(best.t) - hoverX)) best = p;
     const x = X(best.t);
     ctx.strokeStyle = css("--text-muted"); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x, Y(best.score), 4, 0, 2 * Math.PI); ctx.fillStyle = css("--series-1"); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, Y(best.v), 4, 0, 2 * Math.PI); ctx.fillStyle = css("--series-1"); ctx.fill();
     tip.style.display = "block";
-    tip.textContent = `hace ${(now - best.t).toFixed(1)} s · índice ${best.score.toFixed(3)} · umbral ${best.on.toFixed(3)} · ${best.state}`;
-    tip.style.left = Math.min(x + 10, W - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
-  }
+    tip.textContent = `${fmtTime(best.t)} · índice ${best.v.toFixed(3)} · umbral ${best.on.toFixed(3)}` +
+      (range > 300 ? ` · ${Math.round(best.motion * 100)} % en movimiento` : best.motion ? " · MOVIMIENTO" : "");
+    tip.style.left = clamp(x + 10, 0, W - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+  } else tip.style.display = "none";
 }
 
-function frame(now) {
-  if (!$("tab-map").hidden) drawMap(now);
-  if (!$("tab-chart").hidden) drawChart();
+// ================= detector =================
+async function loadDetector() {
+  try { const c = await getJSON("/api/config"), d = $("det-form"); for (const k of Object.keys(c)) if (d[k]) d[k].value = c[k]; }
+  catch (e) { $("det-msg").textContent = "No se pudo leer la configuración"; }
+}
+$("det-save").onclick = async () => {
+  const d = $("det-form"), body = {feature: d.feature.value}, msg = $("det-msg");
+  for (const k of ["k_on", "k_off", "ratio_on", "ratio_off", "n_on", "n_off"]) body[k] = Number(d[k].value);
+  msg.textContent = "Guardando…";
+  try { const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    msg.textContent = r.ok ? "✓ Guardado" : "✗ " + await r.text(); } catch (e) { msg.textContent = "✗ Sin conexión"; }
+};
+$("recal").onclick = async () => { try { await fetch("/api/recalibrate", {method: "POST"}); } catch (e) {} };
+
+// ================= arranque =================
+function frame(t) {
+  try {
+    if (!$("tab-live").hidden) drawLive(t);
+    if (!$("tab-plan").hidden) drawEditor(t);
+    if (!$("tab-history").hidden) drawChart();
+  } catch (e) { console.error(e); }
   requestAnimationFrame(frame);
 }
-
-// ---------- ajustes ----------
-async function loadRoom() {
-  try { room = await (await fetch("/api/room")).json(); } catch (e) { room = null; }
-}
-async function loadSettings() {
-  await loadRoom();
-  const f = $("room-form");
-  if (room) {
-    f.width.value = room.width; f.depth.value = room.depth;
-    f.tx0.value = room.tx[0]; f.tx1.value = room.tx[1]; f.rx0.value = room.rx[0]; f.rx1.value = room.rx[1];
-    if (room.router) { f.router0.value = room.router[0]; f.router1.value = room.router[1]; }
-  }
-  try {
-    const c = await (await fetch("/api/config")).json(), d = $("det-form");
-    for (const k of Object.keys(c)) if (d[k]) d[k].value = c[k];
-  } catch (e) { $("det-msg").textContent = "No se pudo leer la configuración"; }
-}
-async function post(url, body, msg) {
-  msg.textContent = "Guardando…";
-  try {
-    const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
-    msg.textContent = r.ok ? "✓ Guardado" : "✗ " + await r.text();
-    return r.ok;
-  } catch (e) { msg.textContent = "✗ Sin conexión"; return false; }
-}
-$("room-save").addEventListener("click", async () => {
-  const f = $("room-form"), n = (x) => Number(x.value);
-  if (!f.reportValidity()) return;
-  const r = {width: n(f.width), depth: n(f.depth), tx: [n(f.tx0), n(f.tx1)], rx: [n(f.rx0), n(f.rx1)]};
-  if (f.router0.value !== "" && f.router1.value !== "") r.router = [n(f.router0), n(f.router1)];
-  const inside = (p) => p[0] <= r.width && p[1] <= r.depth;
-  if (!inside(r.tx) || !inside(r.rx) || (r.router && !inside(r.router))) { $("room-msg").textContent = "✗ Hay un equipo fuera del cuarto"; return; }
-  if (await post("/api/room", r, $("room-msg"))) room = r;
-});
-$("det-save").addEventListener("click", async () => {
-  const d = $("det-form"), body = {feature: d.feature.value};
-  for (const k of ["k_on", "k_off", "ratio_on", "ratio_off", "n_on", "n_off"]) body[k] = Number(d[k].value);
-  await post("/api/config", body, $("det-msg"));
-});
-$("recal").addEventListener("click", async () => {
-  try { await fetch("/api/recalibrate", {method: "POST"}); history = []; } catch (e) {}
-});
-
-loadRoom();
-poll();
-requestAnimationFrame(frame);
+(async () => {
+  try { plan = normalizePlan(await getJSON("/api/room")); } catch (e) { plan = normalizePlan(null); }
+  savedPlan = JSON.parse(JSON.stringify(plan)); syncSize(); markDirty();
+  pollState(); pollEvents(); pollHistory();
+  requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
