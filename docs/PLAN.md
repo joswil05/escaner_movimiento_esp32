@@ -2,6 +2,9 @@
 
 > Estado: **v2, alcance cerrado**. Este documento define el alcance, el stack, la arquitectura y el orden de trabajo.
 > Código existente: solo `firmware/blink` (prueba de flasheo de la placa B, ver `docs/guia_flashear_placa_b.md`).
+>
+> **Entorno confirmado:** Windows, ESP-IDF **v5.3.1** (Espressif-IDE + terminal "ESP-IDF 5.3 CMD"), placas ESP32 DevKit V1 de 30 pines (LED en GPIO2).
+> **Placa B rescatada:** se flasheó `blink` por UART usando la placa A como puente; el LED parpadea. ✅
 > Tipo de proyecto: personal, sin fecha límite. Se avanza por hitos, cada uno con un criterio de "terminado" verificable.
 
 ---
@@ -336,9 +339,10 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 
 ## 10. Preguntas abiertas
 
-1. ¿Qué versión de ESP-IDF tienes (`idf.py --version`)? ¿La laptop usa Windows, macOS o Linux?
-2. ¿Qué modelo exacto de placa es? (DevKitC, DOIT DevKit V1, NodeMCU-32S…) Eso define si hay LED en GPIO2.
-3. ¿Tienes acceso a la configuración del router para fijar el canal y el ancho de banda de 2.4 GHz?
-4. ¿Usas Home Assistant (para E2) o lo probamos con un broker MQTT genérico?
-5. ¿Tienes mascota? Define si "mascota" es una clase real en E6.
-6. ¿Te sientes cómodo con Python para la parte de la PC?
+1. ~~Versión de IDF y sistema operativo~~ → v5.3.1 en Windows.
+2. ~~Modelo de placa~~ → DevKit V1 de 30 pines.
+3. MAC de la placa B (sale en el monitor serial de `blink`).
+4. ¿Tienes acceso a la configuración del router para fijar el canal y el ancho de banda de 2.4 GHz?
+5. ¿Usas Home Assistant (para E2) o lo probamos con un broker MQTT genérico?
+6. ¿Tienes mascota? Define si "mascota" es una clase real en E6.
+7. ¿Te sientes cómodo con Python para la parte de la PC?

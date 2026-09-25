@@ -116,6 +116,7 @@ idf.py -p <PUERTO> flash monitor
 4. **Elegir el chip y el puerto:** en la barra de herramientas, en el desplegable **"on:"**, elige *New Launch Target… → ESP Target*. Nombre: `esp32`, IDF Target: `esp32`, Serial Port: el `COMx` de la placa A. Luego *Finish*. En el desplegable del medio tiene que aparecer `blink`.
 5. **Compilar:** botón del **martillo** (Build). En la pestaña *Console* debe salir `Project build complete`.
 6. **Flashear:** pon la placa B en modo descarga (paso 4 de esta guía) y pulsa el botón verde **Run ▶**. Si no conecta, repite el modo descarga y vuelve a pulsar Run.
+   - **Si Run falla con `xtensa-esp32-elf-gcc ... not found in the PATH`:** es un problema del entorno del IDE, no del código. Cierra el IDE, abre **"ESP-IDF 5.3 CMD"** desde el menú de inicio y ejecuta: `cd C:\esp\blink`, `idf.py fullclean`, `idf.py build`, y luego `idf.py -p COMx -b 115200 flash` (con la placa B en modo descarga). Así funcionó en la prueba real.
 7. **Monitor:** icono **Open a Terminal** (o `Ctrl+Alt+Shift+T`) → *ESP-IDF Serial Monitor* → elige el mismo `COMx` → *OK*. Pulsa EN en la placa B. **Cierra el monitor antes de volver a flashear**, porque ocupa el puerto.
 
 ## Paso 3: convertir la placa A en puente USB‑serial
