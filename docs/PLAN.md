@@ -33,7 +33,7 @@ Detectar movimiento humano en una habitación usando el **CSI (Channel State Inf
 
 **Resultado mínimo (MVP):** la ESP32 receptora, alimentada por un cargador USB y sin PC, decide sola "hay movimiento / no hay movimiento" y lo muestra en vivo en una página web que se abre desde el celular. Además, se sabe cuántas falsas alarmas por hora tiene, porque se midió.
 
-**Resultado completo:** el MVP más las extensiones E1–E7 (sección 6): índice de actividad con historial, integración con Home Assistant, streaming por WiFi, clasificador de actividades (en PC y en la placa), rechazo de falsos positivos conocidos y, como experimento de investigación, detección de una persona quieta por su respiración.
+**Resultado completo:** el MVP más las extensiones E1–E7 y E9 (sección 6): índice de actividad con historial, notificaciones push (ntfy), streaming por WiFi, mapa de actividad del cuarto visto desde arriba, clasificador de actividades (en PC y en la placa), rechazo de falsos positivos conocidos y, como experimento de investigación, detección de una persona quieta por su respiración.
 
 **Fuera de alcance por decisión:** dirección entrada/salida (E8).
 
@@ -137,7 +137,7 @@ Los pasos 2–7 se implementan **primero en Python** (referencia) y después en 
 
 ### 3.5 Decisiones de diseño para que las extensiones encajen sin rehacer nada
 
-Como E1–E7 están dentro del alcance, estas decisiones se toman desde la fase 1:
+Como E1–E7 y E9 están dentro del alcance, estas decisiones se toman desde la fase 1:
 
 - **Vector de features único** (`csi_features_t`) calculado en `csi_dsp`: V, C, energía por bandas (0.1–0.6 Hz, 0.6–3 Hz, 3–10 Hz), media/desviación/curtosis de la amplitud, RSSI medio y tasa de paquetes. Lo usan el detector (MVP), el índice de actividad (E1), el clasificador (E4/E5) y el rechazo de falsos positivos (E6). Python y C calculan **exactamente el mismo vector**, y un test lo verifica.
 - **Máquina de estados extensible:** `VACIO` → `MOVIMIENTO` → `PRESENCIA_QUIETA` (E7). El MVP usa solo los dos primeros, pero la API, la web y MQTT ya reportan el estado como texto y no como booleano.
@@ -242,6 +242,7 @@ escaner_movimiento_esp32/
 | E5 | Clasificador en la ESP32 | Lo mismo sin PC, en la web y en MQTT | Exportar con emlearn a C (`csi_model`); verificar que PC y placa dan la misma predicción | ★★★★ | Medio |
 | E6 | Rechazo de falsos positivos conocidos (ventilador, puerta, **mascota**) | Menos falsas alarmas; que la mascota no dispare alertas | Ventilador: pico periódico estable en el espectro. Puerta: transitorio único y corto. Mascota: clase propia en E4 (movimiento más bajo, cerca del suelo, energía menor). Se combinan reglas y clasificador | ★★★★ | Alto (sobre todo mascota: una mascota grande se parece a una persona) |
 | E7 | Presencia quieta (respiración) | Distinguir "persona quieta" de "cuarto vacío"; estimar respiraciones por minuto | Ventana de 30 s decimada a 10 Hz, filtro pasa‑banda de 0.1–0.6 Hz, elegir las subportadoras más periódicas, pico espectral + autocorrelación | ★★★★★ | **Alto**: se trata como experimento con criterio de éxito propio |
+| E9 | **Mapa de actividad del cuarto** (vista superior) | El cuarto dibujado a escala con router, TX y RX; la zona sensible entre las placas se tiñe con una escala de color según la intensidad del movimiento (tipo cámara térmica, pero lo que se mide es **movimiento**, no temperatura) | Plano configurable (medidas y posiciones). Zona sensible = elipses de Fresnel entre TX y RX (física real). Color = índice de movimiento medido. Ondas animadas desde el TX, marcadas como **decorativas**. Opcional: estimar "cerca/lejos de la línea TX–RX" según la magnitud de la alteración, marcado como estimación. En el visor de la PC y en la web de la ESP32 | ★★★ | Bajo en lo visual. **Límite físico:** con un solo enlace no se mide *dónde* está la persona dentro de la zona; con ≥4 placas (tomografía de radio) el mapa pasaría a mostrar la zona real sin rediseñarlo |
 
 ### Fuera de alcance
 
@@ -304,6 +305,8 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 - **E5:** exportar con emlearn y verificar en `replay` que la predicción en C = la predicción en Python. Luego medir en la placa el tiempo de inferencia y la flash usada.
 
 **Terminado cuando:** E4 supera el 85 % de exactitud balanceada en el día de prueba; E6 reduce las falsas alarmas de S5 al menos a la mitad; E5 da las mismas predicciones que la PC en ≥99 % de las ventanas y tarda <5 ms por inferencia.
+
+**E9 (mapa de actividad):** primera versión en el visor de la PC al terminar la fase 2 (usa su índice de movimiento); versión web en la ESP32 junto con la fase 3c/4. Se termina cuando el plano se configura con las medidas reales y el color responde en vivo al movimiento, con los elementos decorativos y estimados indicados en pantalla.
 
 ### Fase 6: investigación, presencia quieta (E7)
 - Grabaciones largas de S4 (5–10 min sentado o acostado quieto, a 1–3 m de la línea TX–RX) **con referencia**: contar respiraciones a mano o con una app de respiración del celular.
