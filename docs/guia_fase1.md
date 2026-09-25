@@ -53,7 +53,7 @@ Sigue los pasos 3 a 5 de [`guia_flashear_placa_b.md`](guia_flashear_placa_b.md):
 ### A3. Dejar el transmisor funcionando
 
 1. **Quita los 5 cables** y desconecta el USB.
-2. Alimenta la placa B con un **cargador de celular**.
+2. Alimenta la placa B **por el pin VIN**: 5 V a **VIN** y tierra a **GND**, con un cable USB cortado (rojo → VIN, negro → GND) o un adaptador USB a pines, conectado a un cargador o power bank. **No uses su conector USB**: con el chip quemado, esa entrada no aguanta los picos de corriente del WiFi (ver `experimentos.md`, E1-0). **Nunca** pongas 5 V en el pin 3V3.
 3. Mira el LED azul:
 
 | LED | Significa |
@@ -214,6 +214,7 @@ Cada grabación va en **dos archivos**: `.csirec` (los datos) y `.json` (las eti
 
 | Síntoma | Causa probable | Qué hacer |
 |---|---|---|
+| Los dos LEDs del TX (rojo y azul) se apagan y el ciclo se repite cada pocos segundos | Falta corriente: la placa se apaga cuando enciende el WiFi | Alimentarla por VIN (paso A3), con otro cable o cargador |
 | El LED del TX parpadea rápido sin parar | El TX no se conecta al WiFi | Revisa nombre y contraseña en `menuconfig` de `firmware\tx` y vuelve a cablearlo (parte A) |
 | El visor muestra `[stats] 0 paq/s` en modo transmisor | El RX no recibe beacons | ¿El LED del TX destella una vez por segundo? ¿La MAC en `CSI receptor` es `F4:2D:C9:6B:26:C0`? ¿Los dos están conectados a la **misma** red? |
 | No aparece `TX 192.168.1.xx` en la barra | Todavía no llegó la información del TX (se manda cada segundo) o no hay beacons | Espera unos segundos; si sigue igual, ver la fila anterior |

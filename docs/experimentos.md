@@ -33,3 +33,11 @@
 2. Descartar la subportadora +1 (y la 0) siempre en la ESP32 clásica. Ya está hecho en `csi_tools`.
 3. El índice simple distingue movimiento de quietud, pero con poco margen. En la fase 2 se prueban el filtro Hampel, la correlación entre paquetes (C) y la energía por bandas. Para evaluarlos hacen falta etiquetas precisas: el grabador de la fase 1 permitirá marcar con el teclado cuándo empieza y termina cada movimiento.
 4. Próxima grabación: con etiquetas por teclado, incluir S0 (cuarto vacío, sin la persona cerca), S1 (caminar entre placa y transmisor) y S3 (brazos), para medir la separación en cada caso.
+
+## E1-0: Alimentación del transmisor (placa B)
+
+- **Fecha:** 2026-09-25
+- **Síntoma:** con `firmware/tx` cargado y alimentada **por su conector USB** con un cargador de celular, la placa B entra en bucle: LED rojo encendido, LED azul parpadeando rápido y, a los pocos segundos, **los dos LEDs se apagan** y vuelve a arrancar.
+- **Diagnóstico:** alimentada por el **pin VIN** desde la placa A (conectada a la laptop), con `EN→GND` en la placa A, funciona bien: se conecta al WiFi y envía beacons.
+- **Conclusión:** el ESP32 de la placa B está sano. El blink (~50 mA) funcionaba porque apenas consume; con WiFi (picos de 400–500 mA) la entrada USB no aguanta. Lo más probable es un diodo de entrada dañado junto al chip USB quemado, o un cargador o cable débil (pendiente de confirmar probando ese cargador con la placa A).
+- **Solución:** alimentar la placa B **por VIN** (5 V) y GND, sin pasar por su conector USB: cable USB cortado o adaptador USB a pines, con cargador o power bank. Nunca 5 V en el pin 3V3.
