@@ -1,0 +1,17 @@
+menu "Blink de prueba"
+
+    config BLINK_GPIO
+        int "GPIO del LED"
+        range 0 33
+        default 2
+        help
+            GPIO donde está el LED. En la mayoría de ESP32 DevKit V1 el LED azul
+            está en GPIO2. La DevKitC de Espressif no trae LED de usuario: conecta
+            uno externo (LED + resistencia de 220 ohm a GND) o guíate por el serial.
+
+    config BLINK_PERIOD_MS
+        int "Periodo de parpadeo (ms)"
+        range 50 5000
+        default 500
+
+endmenu

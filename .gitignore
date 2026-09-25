@@ -1,0 +1,16 @@
+# ESP-IDF
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# Datos grabados (solo se versionan muestras pequeñas en data/samples/)
+data/*
+!data/samples/

@@ -1,0 +1,4 @@
+# Consola en UART0 a 115200: es la misma línea que usa el puente/conversor para flashear.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
