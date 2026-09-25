@@ -151,7 +151,7 @@ python apps\live_view.py --replay ..\data\fase0_prueba1.csv
 ### Qué mandarme
 
 - Una **captura del visor** mientras caminas o justo después (que se vean quietud y movimiento en el índice).
-- Dos o tres líneas **`CSI_STATS`** del monitor.
+- Dos o tres líneas **`CSI_STATS`** de la terminal del visor.
 - La **MAC de la placa buena**.
 - El archivo `fase0_prueba1.csv`, si puedes. Me sirve para ajustar el procesamiento a tus datos reales.
 
@@ -167,5 +167,5 @@ python apps\live_view.py --replay ..\data\fase0_prueba1.csv
 | El visor dice `could not open port` o `Access is denied` | El monitor de IDF u otro programa tiene el puerto abierto | Cierra el monitor (`Ctrl + ]`), el Espressif-IDE u otra ventana que use el COM |
 | La terminal se "congela" con miles de números | Se abrió `idf.py monitor` con este firmware | Es normal; ciérralo y usa el visor |
 | `líneas malas` sube rápido en el visor | Velocidad del puerto incorrecta o cable malo | Revisa que el visor use 921600 (es el valor por defecto) y prueba otro cable USB |
-| El monitor muestra caracteres raros al arrancar | Normal: el arranque de la ROM sale a otra velocidad | Ignóralo; lo que sigue debe verse bien |
+| La terminal del visor muestra caracteres raros al arrancar | Normal: el arranque de la ROM sale a otra velocidad | Ignóralo; lo que sigue debe verse bien |
 | `Guru Meditation Error` o reinicios | Error del firmware o alimentación débil | Copia el texto completo del error y mándamelo |
