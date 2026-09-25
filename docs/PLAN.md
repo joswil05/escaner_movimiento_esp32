@@ -19,11 +19,11 @@
 | 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
 | 1. Captura y visualización | 20 % | ~60 % | Enlace TX→RX validado en el hardware (E1-1). Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: alimentación propia del TX, experimentos 1–3 (`guia_fase1.md`), dataset |
 | 2. Detector en PC | 15 % | ~60 % | Hecho: preprocesado (normalización + Hampel), features V/C/bandas, detector adaptativo con histéresis integrado en el visor, `evaluate.py` con barrido de umbrales, tests (`guia_fase2.md`). Falta: ajustar y validar con grabaciones etiquetadas de dos días distintos |
-| 3. Detector en la ESP32 (MVP) | 20 % | ~35 % | Hecho: 3a `csi_dsp` en C, verificado contra Python con datos reales; 3b detector en el receptor con tramas DETECT, comando de recalibración, visor con PC y ESP32 lado a lado, `evaluate.py --source esp` (`guia_fase3.md`). Falta: probar en la placa, 3c web en el celular, 3d prueba de 24 h |
-| 4. UDP, índice de actividad, ntfy | 10 % | 0 % | |
+| 3. Detector en la ESP32 (MVP) | 20 % | ~55 % | Hecho: 3a `csi_dsp` en C verificado contra Python; 3b detector en el receptor + visor PC/ESP32; 3c página web de la placa (estado, **mapa de actividad E9**, índice, ajustes en NVS) (`guia_fase3.md`). Falta: probar en la placa, 3d prueba de 24 h |
+| 4. UDP, índice de actividad, ntfy | 10 % | ~10 % | E9 (mapa de actividad) ya está en la web de la placa; falta la estimación cerca/lejos, E1, E2, E3 |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~33 %** | |
+| **Total** | 100 % | **~38 %** | |
 
 ---
 
@@ -184,7 +184,7 @@ escaner_movimiento_esp32/
 ├── firmware/
 │   ├── blink/               # prueba de flasheo (placa B) — ya existe
 │   ├── csi_router_test/     # fase 0: CSI en modo router, salida de texto CSI_DATA — ya existe
-│   ├── rx/                  # receptor: CSI (TX o router) -> tramas binarias por USB — ya existe
+│   ├── rx/                  # receptor: CSI -> tramas binarias por USB, detector y web (main/web/index.html) — ya existe
 │   │   └── main/web/        # index.html + app.js embebidos (EMBED_FILES)
 │   ├── tx/                  # transmisor: beacons ESP-NOW + OTA con rollback — ya existe
 │   └── components/
@@ -308,7 +308,7 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 
 **Terminado cuando:** E4 supera el 85 % de exactitud balanceada en el día de prueba; E6 reduce las falsas alarmas de S5 al menos a la mitad; E5 da las mismas predicciones que la PC en ≥99 % de las ventanas y tarda <5 ms por inferencia.
 
-**E9 (mapa de actividad):** primera versión en el visor de la PC al terminar la fase 2 (usa su índice de movimiento); versión web en la ESP32 junto con la fase 3c/4. Se termina cuando el plano se configura con las medidas reales y el color responde en vivo al movimiento, con los elementos decorativos y estimados indicados en pantalla.
+**E9 (mapa de actividad):** se hizo directamente en la **web de la ESP32** (fase 3c), que se abre tanto en la laptop como en el celular: una sola implementación para los dos. Queda pendiente la estimación "cerca/lejos de la línea TX–RX". Se termina cuando el plano se configura con las medidas reales y el color responde en vivo al movimiento, con los elementos decorativos y estimados indicados en pantalla.
 
 ### Fase 6: investigación, presencia quieta (E7)
 - Grabaciones largas de S4 (5–10 min sentado o acostado quieto, a 1–3 m de la línea TX–RX) **con referencia**: contar respiraciones a mano o con una app de respiración del celular.

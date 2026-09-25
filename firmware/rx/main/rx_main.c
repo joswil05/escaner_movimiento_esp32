@@ -11,6 +11,7 @@
  * El callback de CSI solo filtra, copia y encola; el armado de tramas y el detector de
  * movimiento (csi_dsp, el mismo algoritmo que host/csi_tools/detector.py) corren en otra tarea.
  * La PC puede enviar comandos de un byte por el mismo puerto: 'R' = recalibrar el detector.
+ * Además sirve una página web (web.c) con el estado, el mapa de actividad y los ajustes.
  */
 #include <inttypes.h>
 #include <stdarg.h>
@@ -20,10 +21,13 @@
 #include "csi_dsp.h"
 #include "csi_proto.h"
 #include "csi_wifi.h"
+#include "nvs.h"
+#include "rx_status.h"
 #include "driver/uart.h"
 #include "driver/uart_vfs.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_netif.h"
 #include "esp_now.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -65,6 +69,83 @@ static csi_frame_tx_info_t s_tx_info;
 
 static csi_detector_t s_detector; /* ~61 KB: ventana de 1 s y búferes de trabajo */
 static volatile bool s_recalibrate;
+
+/* Estado compartido con la web; protegido por un spinlock (copias cortas). */
+static portMUX_TYPE s_status_lock = portMUX_INITIALIZER_UNLOCKED;
+static rx_status_t s_status;
+static csi_detector_config_t s_pending_cfg;
+static volatile bool s_cfg_pending;
+
+#define NVS_NS "csi_rx"
+#define DET_CFG_VERSION 1
+
+typedef struct {
+    uint16_t version;
+    csi_detector_config_t cfg;
+} stored_cfg_t;
+
+void rx_get_status(rx_status_t *out)
+{
+    taskENTER_CRITICAL(&s_status_lock);
+    *out = s_status;
+    taskEXIT_CRITICAL(&s_status_lock);
+}
+
+void rx_request_recalibrate(void)
+{
+    s_recalibrate = true;
+}
+
+void rx_get_detector_config(csi_detector_config_t *out)
+{
+    taskENTER_CRITICAL(&s_status_lock);
+    *out = s_cfg_pending ? s_pending_cfg : s_detector.cfg;
+    taskEXIT_CRITICAL(&s_status_lock);
+}
+
+bool rx_set_detector_config(const csi_detector_config_t *cfg)
+{
+    taskENTER_CRITICAL(&s_status_lock);
+    s_pending_cfg = *cfg;
+    s_cfg_pending = true;
+    taskEXIT_CRITICAL(&s_status_lock);
+
+    stored_cfg_t st = {.version = DET_CFG_VERSION, .cfg = *cfg};
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS, NVS_READWRITE, &h);
+    if (err == ESP_OK) {
+        err = nvs_set_blob(h, "detector", &st, sizeof(st));
+        if (err == ESP_OK) {
+            err = nvs_commit(h);
+        }
+        nvs_close(h);
+    }
+    return err == ESP_OK;
+}
+
+/* Umbrales guardados desde la web (si hay); si no, los valores por defecto. */
+static csi_detector_config_t load_detector_config(void)
+{
+    csi_detector_config_t cfg = csi_detector_default_config();
+    stored_cfg_t st;
+    size_t len = sizeof(st);
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS, NVS_READONLY, &h) == ESP_OK) {
+        if (nvs_get_blob(h, "detector", &st, &len) == ESP_OK && len == sizeof(st) && st.version == DET_CFG_VERSION) {
+            /* ventana, hop y calibración quedan fijos; solo se toman los umbrales */
+            cfg.feature = st.cfg.feature;
+            cfg.k_on = st.cfg.k_on;
+            cfg.k_off = st.cfg.k_off;
+            cfg.ratio_on = st.cfg.ratio_on;
+            cfg.ratio_off = st.cfg.ratio_off;
+            cfg.n_on = st.cfg.n_on;
+            cfg.n_off = st.cfg.n_off;
+            ESP_LOGI(TAG, "Detector: umbrales guardados cargados");
+        }
+        nvs_close(h);
+    }
+    return cfg;
+}
 
 /* ---------- Salida en tramas ---------- */
 
@@ -188,6 +269,24 @@ static void csi_cb(void *ctx, wifi_csi_info_t *info)
 
 static void run_detector(const csi_item_t *item)
 {
+    if (s_cfg_pending) {
+        taskENTER_CRITICAL(&s_status_lock);
+        csi_detector_config_t c = s_pending_cfg;
+        s_cfg_pending = false;
+        taskEXIT_CRITICAL(&s_status_lock);
+        bool feature_changed = c.feature != s_detector.cfg.feature;
+        s_detector.cfg.feature = c.feature;
+        s_detector.cfg.k_on = c.k_on;
+        s_detector.cfg.k_off = c.k_off;
+        s_detector.cfg.ratio_on = c.ratio_on;
+        s_detector.cfg.ratio_off = c.ratio_off;
+        s_detector.cfg.n_on = c.n_on;
+        s_detector.cfg.n_off = c.n_off;
+        ESP_LOGI(TAG, "Detector: umbrales nuevos (k_on %.1f, ratio_on %.2f)", c.k_on, c.ratio_on);
+        if (feature_changed) {
+            s_recalibrate = true; /* la línea base de otra feature no sirve */
+        }
+    }
     if (s_recalibrate) {
         s_recalibrate = false;
         csi_detector_recalibrate(&s_detector);
@@ -218,6 +317,17 @@ static void run_detector(const csi_item_t *item)
                      d->features.rssi_std, d->features.rate_hz},
     };
     send_frame(CSI_FRAME_DETECT, &f, sizeof(f), NULL, 0);
+
+    taskENTER_CRITICAL(&s_status_lock);
+    s_status.state = d->state;
+    s_status.score = d->score;
+    s_status.threshold_on = d->threshold_on;
+    s_status.threshold_off = d->threshold_off;
+    s_status.base = s_detector.base;
+    s_status.proc_us = f.proc_us;
+    s_status.features = d->features;
+    s_status.decisions++;
+    taskEXIT_CRITICAL(&s_status_lock);
     if (d->state != s_prev) {
         ESP_LOGI(TAG, "Detector: %s (indice %.3f, umbral %.3f, %u us)", csi_state_name(d->state), d->score,
                  d->threshold_on, f.proc_us);
@@ -269,6 +379,23 @@ static void stats_task(void *arg)
         };
         prev = now;
         send_frame(CSI_FRAME_STATS, &st, sizeof(st), NULL, 0);
+
+        taskENTER_CRITICAL(&s_status_lock);
+        s_status.uptime_ms = st.uptime_ms;
+        s_status.rx_last_s = st.rx_last_s;
+        s_status.dropped_total = st.dropped_total;
+        s_status.tx_lost_total = st.tx_lost_total;
+        s_status.rssi = st.rssi;
+        s_status.channel = st.channel;
+        s_status.source = st.source;
+        s_status.free_heap = st.free_heap;
+        if (s_have_tx_info) {
+            s_status.have_tx = true;
+            s_status.tx_ip = s_tx_info.beacon.ip;
+            memcpy(s_status.tx_fw, s_tx_info.beacon.fw_version, sizeof(s_status.tx_fw));
+            s_status.tx_fw[sizeof(s_status.tx_fw) - 1] = '\0';
+        }
+        taskEXIT_CRITICAL(&s_status_lock);
         if (s_have_tx_info) {
             send_frame(CSI_FRAME_TX_INFO, &s_tx_info, sizeof(s_tx_info), NULL, 0);
         }
@@ -345,7 +472,8 @@ void app_main(void)
     ESP_LOGI(TAG, "Fuente: router");
 #endif
 
-    csi_detector_init(&s_detector, NULL);
+    csi_detector_config_t det_cfg = load_detector_config();
+    csi_detector_init(&s_detector, &det_cfg);
     ESP_LOGI(TAG, "Detector: ventana %d, decision cada %d paquetes, calibracion %d ventanas", s_detector.cfg.window,
              s_detector.cfg.hop, s_detector.cfg.calib_windows);
 
@@ -353,6 +481,9 @@ void app_main(void)
     xTaskCreatePinnedToCore(cmd_task, "csi_cmd", 2048, NULL, 3, NULL, 0);
     xTaskCreatePinnedToCore(stats_task, "csi_stats", 3072, NULL, 4, NULL, 1);
     csi_start();
+    web_start();
+    esp_ip4_addr_t ip = {.addr = csi_wifi_ip()};
+    ESP_LOGI(TAG, "Pagina web: http://" IPSTR "/", IP2STR(&ip));
 #if CONFIG_CSI_RX_SOURCE_ROUTER
     ping_router_start();
 #endif

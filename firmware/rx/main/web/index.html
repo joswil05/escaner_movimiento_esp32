@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escáner CSI</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3f0; --surface-1: #fcfcfb; --border: #dcdad4;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+  --grid: #e6e4df; --wall: #52514e;
+  --series-1: #2a78d6; --activity: 42, 120, 214;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  --motion-span: rgba(208, 59, 59, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #121211; --surface-1: #1a1a19; --border: #33332f;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8e8d85;
+    --grid: #2a2a27; --wall: #c3c2b7;
+    --series-1: #3987e5; --activity: 57, 135, 229;
+    --motion-span: rgba(208, 59, 59, 0.22);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211; --surface-1: #1a1a19; --border: #33332f;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8e8d85;
+  --grid: #2a2a27; --wall: #c3c2b7;
+  --series-1: #3987e5; --activity: 57, 135, 229;
+  --motion-span: rgba(208, 59, 59, 0.22);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
+.badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px;
+  font-weight: 700; font-size: 18px; color: #fff; min-width: 190px; justify-content: center; }
+.badge.quiet { background: var(--good); }
+.badge.motion { background: var(--critical); }
+.badge.calib, .badge.off { background: var(--warning); color: #0b0b0b; }
+button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-1); color: var(--text-primary); cursor: pointer; }
+button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 16px; }
+.stat .k { color: var(--text-muted); font-size: 12px; }
+.stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+nav { display: flex; gap: 6px; margin-bottom: 12px; }
+nav button[aria-selected="true"] { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
+canvas { width: 100%; display: block; touch-action: none; }
+.note { color: var(--text-secondary); font-size: 13px; margin: 8px 0 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
+.ramp { width: 120px; height: 10px; border-radius: 3px; border: 1px solid var(--border);
+  background: linear-gradient(to right, rgba(var(--activity), 0.05), rgba(var(--activity), 0.95)); }
+.swatch { display: inline-block; width: 18px; height: 0; border-top: 2px dashed; vertical-align: middle; margin-right: 4px; }
+form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; }
+label { display: flex; flex-direction: column; font-size: 13px; color: var(--text-secondary); gap: 4px; }
+input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-0); color: var(--text-primary); width: 100%; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+.msg { font-size: 13px; color: var(--text-secondary); }
+.tooltip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); display: none; white-space: nowrap; }
+.plot { position: relative; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Escáner de movimiento WiFi</h1>
+    <span id="badge" class="badge off" role="status" aria-live="polite">Conectando…</span>
+    <button id="recal" title="Quédate quieto unos 5 s">Recalibrar</button>
+  </header>
+
+  <section class="card stats" aria-label="Estado del enlace">
+    <div class="stat"><div class="k">Paquetes por segundo</div><div class="v" id="s-rate">—</div></div>
+    <div class="stat"><div class="k">Perdidos en el aire</div><div class="v" id="s-lost">—</div></div>
+    <div class="stat"><div class="k">RSSI</div><div class="v" id="s-rssi">—</div></div>
+    <div class="stat"><div class="k">Transmisor</div><div class="v" id="s-tx">—</div></div>
+    <div class="stat"><div class="k">Cálculo por decisión</div><div class="v" id="s-proc">—</div></div>
+    <div class="stat"><div class="k">Memoria libre</div><div class="v" id="s-heap">—</div></div>
+  </section>
+
+  <nav role="tablist">
+    <button role="tab" data-tab="map" aria-selected="true">Mapa</button>
+    <button role="tab" data-tab="chart" aria-selected="false">Índice</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Ajustes</button>
+  </nav>
+
+  <section id="tab-map" class="card">
+    <canvas id="map" height="360" aria-label="Mapa de actividad del cuarto visto desde arriba"></canvas>
+    <div class="legend" style="justify-content:space-between"><span id="map-scale"></span><span id="map-int"></span></div>
+    <div class="legend">
+      <span>Intensidad de movimiento medida</span><span class="ramp" aria-hidden="true"></span>
+      <span>baja → alta</span>
+      <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="waves" checked style="width:auto"> Ondas animadas (decorativas)</label>
+    </div>
+    <p class="note">El color pinta la <b>zona sensible</b> entre transmisor y receptor (zonas de Fresnel, calculadas para el canal actual) según el movimiento medido. Con dos placas no se puede medir <b>dónde</b> está la persona dentro de esa zona: el mapa muestra cuánto movimiento hay, no su posición. Las medidas del cuarto se cambian en <i>Ajustes</i>.</p>
+  </section>
+
+  <section id="tab-chart" class="card" hidden>
+    <div class="plot"><canvas id="chart" height="300" aria-label="Índice de movimiento de los últimos 60 segundos"></canvas><div class="tooltip" id="tip"></div></div>
+    <div class="legend">
+      <span><span class="swatch" style="border-top-style:solid;border-color:var(--series-1)"></span>Índice de movimiento</span>
+      <span><span class="swatch" style="border-color:var(--critical)"></span>Umbral de activación</span>
+      <span><span class="swatch" style="border-color:var(--good)"></span>Umbral de liberación</span>
+      <span><span class="swatch" style="border:0;height:10px;background:var(--motion-span)"></span>MOVIMIENTO</span>
+    </div>
+  </section>
+
+  <section id="tab-settings" hidden>
+    <div class="card">
+      <h2>Cuarto (metros, origen en la esquina superior izquierda del plano)</h2>
+      <form id="room-form">
+        <label>Ancho<input name="width" type="number" step="0.1" min="1" max="30" required></label>
+        <label>Largo<input name="depth" type="number" step="0.1" min="1" max="30" required></label>
+        <label>Transmisor x<input name="tx0" type="number" step="0.05" min="0" required></label>
+        <label>Transmisor y<input name="tx1" type="number" step="0.05" min="0" required></label>
+        <label>Receptor x<input name="rx0" type="number" step="0.05" min="0" required></label>
+        <label>Receptor y<input name="rx1" type="number" step="0.05" min="0" required></label>
+        <label>Router x<input name="router0" type="number" step="0.05" min="0"></label>
+        <label>Router y<input name="router1" type="number" step="0.05" min="0"></label>
+      </form>
+      <div class="row"><button class="primary" id="room-save">Guardar cuarto</button><span class="msg" id="room-msg"></span></div>
+    </div>
+    <div class="card">
+      <h2>Detector</h2>
+      <form id="det-form">
+        <label>Medida<select name="feature"><option value="variance">Varianza (V)</option><option value="decorrelation">Decorrelación (C)</option></select></label>
+        <label>Activación: k·σ<input name="k_on" type="number" step="0.5" min="1" max="50"></label>
+        <label>Activación: mínimo × base<input name="ratio_on" type="number" step="0.05" min="1" max="10"></label>
+        <label>Liberación: k·σ<input name="k_off" type="number" step="0.5" min="0.5" max="50"></label>
+        <label>Liberación: mínimo × base<input name="ratio_off" type="number" step="0.05" min="1" max="10"></label>
+        <label>Ventanas para activar<input name="n_on" type="number" step="1" min="1" max="25"></label>
+        <label>Ventanas para liberar<input name="n_off" type="number" step="1" min="1" max="50"></label>
+      </form>
+      <div class="row"><button class="primary" id="det-save">Guardar umbrales</button><span class="msg" id="det-msg"></span></div>
+      <p class="note">Cada ventana dura 0.2 s. Los cambios se guardan en la placa y se mantienen tras reiniciarla. Cambiar la medida recalibra el detector.</p>
+    </div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const HISTORY_S = 60, POLL_MS = 250;
+let history = [];            // {t, score, on, off, state}
+let last = null, lastOk = 0, room = null, intensity = 0, lastDecision = -1;
+
+// ---------- pestañas ----------
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", x === b));
+  for (const t of ["map", "chart", "settings"]) $("tab-" + t).hidden = t !== b.dataset.tab;
+  if (b.dataset.tab === "settings") loadSettings();
+}));
+
+// ---------- datos ----------
+async function poll() {
+  try {
+    const r = await fetch("/api/state", {cache: "no-store"});
+    const s = await r.json();
+    last = s; lastOk = Date.now();
+    if (s.decisions !== lastDecision) {
+      lastDecision = s.decisions;
+      history.push({t: Date.now() / 1000, score: s.score, on: s.on, off: s.off, state: s.state});
+      const cut = Date.now() / 1000 - HISTORY_S;
+      while (history.length && history[0].t < cut) history.shift();
+    }
+    render(s);
+  } catch (e) { /* se muestra como "sin conexión" abajo */ }
+  if (Date.now() - lastOk > 2000) setBadge("off", "⚠ Sin conexión con la placa");
+  setTimeout(poll, POLL_MS);
+}
+
+function setBadge(cls, text) { const b = $("badge"); b.className = "badge " + cls; b.textContent = text; }
+
+function render(s) {
+  if (s.state === "MOVIMIENTO") setBadge("motion", "● MOVIMIENTO");
+  else if (s.state === "QUIETO") setBadge("quiet", "✓ QUIETO");
+  else setBadge("calib", "◌ CALIBRANDO… quieto");
+  $("s-rate").textContent = s.rate;
+  $("s-lost").textContent = s.source === "tx" ? String(s.lost) : "— (modo router)";
+  $("s-rssi").textContent = s.rssi + " dBm";
+  $("s-tx").textContent = s.source === "tx" ? (s.tx.ok ? `${s.tx.ip} (${s.tx.fw})` : "sin señal") : "router";
+  $("s-proc").textContent = (s.proc_us / 1000).toFixed(1) + " ms";
+  $("s-heap").textContent = Math.round(s.heap / 1024) + " KB";
+}
+
+// ---------- mapa ----------
+function fitCanvas(c, h) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth;
+  h = h || Number(c.getAttribute("height"));
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + "px";
+  }
+  const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [ctx, w, h];
+}
+
+function targetIntensity(s) {
+  if (!s || s.state === "CALIBRANDO" || !(s.on > s.base)) return 0;
+  // 0 en la línea base, 0.5 justo en el umbral de activación, 1 al doble de esa distancia
+  return Math.max(0, Math.min(1, (s.score - s.base) / (2 * (s.on - s.base))));
+}
+
+function drawMap(now) {
+  if (!room) return;
+  const pad = 22, cw = $("map").clientWidth;
+  // Alto según la forma del cuarto: sin espacio vacío en pantallas angostas
+  const [ctx, W, H] = fitCanvas($("map"), Math.round(Math.min(520, (cw - 2 * pad) * room.depth / room.width + 2 * pad)));
+  ctx.clearRect(0, 0, W, H);
+  const sc = Math.min((W - 2 * pad) / room.width, (H - 2 * pad) / room.depth);
+  const ox = (W - room.width * sc) / 2, oy = (H - room.depth * sc) / 2;
+  const X = (m) => ox + m * sc, Y = (m) => oy + m * sc;
+
+  // piso y cuadrícula de 1 m
+  ctx.fillStyle = css("--surface-1"); ctx.fillRect(X(0), Y(0), room.width * sc, room.depth * sc);
+  ctx.strokeStyle = css("--grid"); ctx.lineWidth = 1; ctx.beginPath();
+  for (let x = 1; x < room.width; x++) { ctx.moveTo(X(x), Y(0)); ctx.lineTo(X(x), Y(room.depth)); }
+  for (let y = 1; y < room.depth; y++) { ctx.moveTo(X(0), Y(y)); ctx.lineTo(X(room.width), Y(y)); }
+  ctx.stroke();
+
+  ctx.save(); ctx.beginPath(); ctx.rect(X(0), Y(0), room.width * sc, room.depth * sc); ctx.clip();
+  const [tx, ty] = room.tx, [rx, ry] = room.rx;
+  const D = Math.hypot(rx - tx, ry - ty);
+  const ch = last && last.channel ? last.channel : 1;
+  const lambda = 299.792458 / (2407 + 5 * ch);      // metros
+  intensity += (targetIntensity(last) - intensity) * 0.15;   // transición suave
+
+  // zonas de Fresnel: elipses con focos en TX y RX; la n-ésima cumple d1 + d2 = D + n·λ/2
+  const rot = Math.atan2(ry - ty, rx - tx), cx = (tx + rx) / 2, cy = (ty + ry) / 2;
+  const act = css("--activity");
+  for (let n = 16; n >= 1; n--) {
+    const a = (D + n * lambda / 2) / 2, b = Math.sqrt(Math.max(a * a - (D / 2) ** 2, 0));
+    const w = Math.pow(n, -0.6);                   // las zonas internas pesan más
+    ctx.beginPath(); ctx.ellipse(X(cx), Y(cy), a * sc, b * sc, rot, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgba(${act}, ${0.006 + 0.2 * intensity * w})`; ctx.fill();
+  }
+  const a1 = (D + lambda / 2) / 2, b1 = Math.sqrt(Math.max(a1 * a1 - (D / 2) ** 2, 0));
+  ctx.beginPath(); ctx.ellipse(X(cx), Y(cy), a1 * sc, b1 * sc, rot, 0, 2 * Math.PI);
+  ctx.strokeStyle = `rgba(${act}, 0.7)`; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+  // ondas decorativas desde el transmisor
+  if ($("waves").checked) {
+    const maxR = Math.hypot(room.width, room.depth);
+    for (let k = 0; k < 5; k++) {
+      const r = ((now / 1000 * 0.6 + k / 5) % 1) * maxR;
+      ctx.beginPath(); ctx.arc(X(tx), Y(ty), r * sc, 0, 2 * Math.PI);
+      ctx.strokeStyle = `rgba(${act}, ${0.25 * (1 - r / maxR)})`; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // paredes
+  ctx.strokeStyle = css("--wall"); ctx.lineWidth = 2; ctx.strokeRect(X(0), Y(0), room.width * sc, room.depth * sc);
+
+  // equipos
+  const text = css("--text-primary"), muted = css("--text-secondary");
+  const device = (p, label, color) => {
+    if (!p) return;
+    ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), 7, 0, 2 * Math.PI);
+    ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = css("--surface-1"); ctx.stroke();
+    ctx.fillStyle = text; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(label, X(p[0]), Y(p[1]) - 12);
+  };
+  device(room.router, "Router", muted);
+  device(room.tx, "TX", css("--series-1"));
+  device(room.rx, "RX", css("--series-1"));
+
+  $("map-scale").textContent = `${room.width} × ${room.depth} m · cuadrícula 1 m · TX–RX ${D.toFixed(1)} m · canal ${ch}`;
+  $("map-int").textContent = `Intensidad ${Math.round(intensity * 100)} %`;
+}
+
+// ---------- gráfica del índice ----------
+let hoverX = null;
+$("chart").addEventListener("pointermove", (e) => { hoverX = e.offsetX; });
+$("chart").addEventListener("pointerleave", () => { hoverX = null; $("tip").style.display = "none"; });
+
+function drawChart() {
+  const [ctx, W, H] = fitCanvas($("chart"));
+  ctx.clearRect(0, 0, W, H);
+  const L = 48, R = 12, T = 10, B = 28, now = Date.now() / 1000;
+  const pts = history.filter((p) => p.state !== "CALIBRANDO");
+  const ymax = Math.max(0.05, ...history.map((p) => Math.max(p.score, p.on || 0))) * 1.15;
+  const X = (t) => L + (1 - (now - t) / HISTORY_S) * (W - L - R);
+  const Y = (v) => T + (1 - v / ymax) * (H - T - B);
+
+  // tramos en MOVIMIENTO
+  ctx.fillStyle = css("--motion-span");
+  for (let i = 0; i < history.length; i++) if (history[i].state === "MOVIMIENTO") {
+    const x0 = X(history[i].t), x1 = i + 1 < history.length ? X(history[i + 1].t) : X(now);
+    ctx.fillRect(x0, T, Math.max(1, x1 - x0), H - T - B);
+  }
+  // ejes y cuadrícula
+  ctx.strokeStyle = css("--grid"); ctx.fillStyle = css("--text-muted"); ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = ymax * i / 4, y = Y(v);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(v.toFixed(3), L - 6, y + 4);
+  }
+  ctx.textAlign = "center";
+  for (let s = 0; s <= HISTORY_S; s += 10) ctx.fillText(s === 0 ? "ahora" : `−${s} s`, X(now - s), H - 8);
+
+  const line = (key, color, dash) => {
+    ctx.beginPath(); let started = false;
+    for (const p of (key === "score" ? history : pts)) {
+      const x = X(p.t), y = Y(p[key]);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = dash ? 1.5 : 2; ctx.setLineDash(dash ? [5, 4] : []); ctx.stroke(); ctx.setLineDash([]);
+  };
+  line("on", css("--critical"), true);
+  line("off", css("--good"), true);
+  line("score", css("--series-1"), false);
+
+  // crosshair + tooltip
+  const tip = $("tip");
+  if (hoverX !== null && history.length) {
+    let best = history[0];
+    for (const p of history) if (Math.abs(X(p.t) - hoverX) < Math.abs(X(best.t) - hoverX)) best = p;
+    const x = X(best.t);
+    ctx.strokeStyle = css("--text-muted"); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, Y(best.score), 4, 0, 2 * Math.PI); ctx.fillStyle = css("--series-1"); ctx.fill();
+    tip.style.display = "block";
+    tip.textContent = `hace ${(now - best.t).toFixed(1)} s · índice ${best.score.toFixed(3)} · umbral ${best.on.toFixed(3)} · ${best.state}`;
+    tip.style.left = Math.min(x + 10, W - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+  }
+}
+
+function frame(now) {
+  if (!$("tab-map").hidden) drawMap(now);
+  if (!$("tab-chart").hidden) drawChart();
+  requestAnimationFrame(frame);
+}
+
+// ---------- ajustes ----------
+async function loadRoom() {
+  try { room = await (await fetch("/api/room")).json(); } catch (e) { room = null; }
+}
+async function loadSettings() {
+  await loadRoom();
+  const f = $("room-form");
+  if (room) {
+    f.width.value = room.width; f.depth.value = room.depth;
+    f.tx0.value = room.tx[0]; f.tx1.value = room.tx[1]; f.rx0.value = room.rx[0]; f.rx1.value = room.rx[1];
+    if (room.router) { f.router0.value = room.router[0]; f.router1.value = room.router[1]; }
+  }
+  try {
+    const c = await (await fetch("/api/config")).json(), d = $("det-form");
+    for (const k of Object.keys(c)) if (d[k]) d[k].value = c[k];
+  } catch (e) { $("det-msg").textContent = "No se pudo leer la configuración"; }
+}
+async function post(url, body, msg) {
+  msg.textContent = "Guardando…";
+  try {
+    const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    msg.textContent = r.ok ? "✓ Guardado" : "✗ " + await r.text();
+    return r.ok;
+  } catch (e) { msg.textContent = "✗ Sin conexión"; return false; }
+}
+$("room-save").addEventListener("click", async () => {
+  const f = $("room-form"), n = (x) => Number(x.value);
+  if (!f.reportValidity()) return;
+  const r = {width: n(f.width), depth: n(f.depth), tx: [n(f.tx0), n(f.tx1)], rx: [n(f.rx0), n(f.rx1)]};
+  if (f.router0.value !== "" && f.router1.value !== "") r.router = [n(f.router0), n(f.router1)];
+  const inside = (p) => p[0] <= r.width && p[1] <= r.depth;
+  if (!inside(r.tx) || !inside(r.rx) || (r.router && !inside(r.router))) { $("room-msg").textContent = "✗ Hay un equipo fuera del cuarto"; return; }
+  if (await post("/api/room", r, $("room-msg"))) room = r;
+});
+$("det-save").addEventListener("click", async () => {
+  const d = $("det-form"), body = {feature: d.feature.value};
+  for (const k of ["k_on", "k_off", "ratio_on", "ratio_off", "n_on", "n_off"]) body[k] = Number(d[k].value);
+  await post("/api/config", body, $("det-msg"));
+});
+$("recal").addEventListener("click", async () => {
+  try { await fetch("/api/recalibrate", {method: "POST"}); history = []; } catch (e) {}
+});
+
+loadRoom();
+poll();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
