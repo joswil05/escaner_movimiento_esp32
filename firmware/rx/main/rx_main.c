@@ -475,6 +475,7 @@ void app_main(void)
 #endif
 
     csi_detector_config_t det_cfg = load_detector_config();
+    det_cfg.compute_bands = false; /* ~50 ms por decisión y el detector no la usa (queda para el clasificador) */
     csi_detector_init(&s_detector, &det_cfg);
     ESP_LOGI(TAG, "Detector: ventana %d, decision cada %d paquetes, calibracion %d ventanas", s_detector.cfg.window,
              s_detector.cfg.hop, s_detector.cfg.calib_windows);

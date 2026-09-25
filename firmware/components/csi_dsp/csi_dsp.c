@@ -25,6 +25,7 @@ csi_detector_config_t csi_detector_default_config(void)
         .n_off = 5,
         .alpha = 0.003f,
         .min_sigma = 1e-4f,
+        .compute_bands = true, /* igual que la versión de Python */
     };
     return c;
 }
@@ -86,7 +87,7 @@ static float median_inplace(float *v, int n)
 
 void csi_dsp_window_features(const float (*amps)[CSI_DSP_NSC], int n, int start, const int8_t *rssi,
                              const uint32_t *ts_us, float (*x)[CSI_DSP_NSC], float (*y)[CSI_DSP_NSC],
-                             const float *cos_tab, const float *sin_tab, csi_features_t *out)
+                             const float *cos_tab, const float *sin_tab, bool bands, csi_features_t *out)
 {
     memset(out, 0, sizeof(*out));
     if (n <= 0) {
@@ -191,7 +192,7 @@ void csi_dsp_window_features(const float (*amps)[CSI_DSP_NSC], int n, int start,
     out->rate_hz = span > 0.0 ? (float)((n - 1) / span) : 0.0f;
 
     /* 3d. energía por bandas: DFT real (bins 1..n/2), potencia media sobre subportadoras */
-    if (n >= 8 && out->rate_hz > 0.0f) {
+    if (bands && n >= 8 && out->rate_hz > 0.0f) {
         /* x ya no se necesita: se reutiliza para guardar y - media de cada subportadora */
         for (int s = 0; s < CSI_DSP_NSC; s++) {
             float mean = 0.0f;
@@ -339,7 +340,7 @@ bool csi_detector_push(csi_detector_t *det, const float amp[CSI_DSP_NSC], int8_t
     /* det->head apunta al paquete más antiguo de la ventana circular */
     csi_features_t f;
     csi_dsp_window_features((const float (*)[CSI_DSP_NSC])det->amps, w, det->head, det->rssi, det->ts_us, det->x,
-                            det->y, det->cos_tab, det->sin_tab, &f);
+                            det->y, det->cos_tab, det->sin_tab, det->cfg.compute_bands, &f);
     float score = det->cfg.feature == CSI_FEATURE_DECORRELATION ? f.decorrelation : f.variance;
     csi_detector_step(det, score);
 

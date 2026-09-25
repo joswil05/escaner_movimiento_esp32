@@ -50,6 +50,7 @@ typedef struct {
     int n_on, n_off;
     float alpha;
     float min_sigma;
+    bool compute_bands;  /* energía por bandas (DFT): ~50 ms en la ESP32; el detector no la usa */
 } csi_detector_config_t;
 
 typedef struct {
@@ -93,11 +94,12 @@ bool csi_dsp_amplitude(const int8_t *raw, int len, bool first_word_invalid, floa
  * Features de una ventana de n paquetes guardada como búfer circular: el paquete más antiguo
  * está en la fila `start` de `amps`, `rssi` y `ts_us` (usar start = 0 si ya está en orden).
  * `x` y `y` son búferes de trabajo de n filas; las entradas no se modifican.
- * `cos_tab`/`sin_tab` tienen n entradas: cos/sin(2*pi*i/n).
+ * `cos_tab`/`sin_tab` tienen n entradas: cos/sin(2*pi*i/n). Con `bands` = false las energías
+ * por banda quedan en 0 (es la parte más costosa).
  */
 void csi_dsp_window_features(const float (*amps)[CSI_DSP_NSC], int n, int start, const int8_t *rssi,
                              const uint32_t *ts_us, float (*x)[CSI_DSP_NSC], float (*y)[CSI_DSP_NSC],
-                             const float *cos_tab, const float *sin_tab, csi_features_t *out);
+                             const float *cos_tab, const float *sin_tab, bool bands, csi_features_t *out);
 
 void csi_detector_init(csi_detector_t *det, const csi_detector_config_t *cfg);
 void csi_detector_recalibrate(csi_detector_t *det);

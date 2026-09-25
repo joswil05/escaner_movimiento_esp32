@@ -215,10 +215,11 @@ class Viewer(QtWidgets.QMainWindow):
         self.esp_label = QtWidgets.QLabel()
         self.esp_label.setMinimumWidth(190)
         self.esp_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.esp_label.hide()
         dock = QtWidgets.QToolBar()
         dock.addWidget(self.state_label)
-        dock.addWidget(self.esp_label)
+        # En una QToolBar se muestra/oculta la acción que envuelve al widget, no el widget
+        self.esp_action = dock.addWidget(self.esp_label)
+        self.esp_action.setVisible(False)
         dock.addWidget(self.label_bar)
         dock.setMovable(False)
         self.addToolBar(QtCore.Qt.ToolBarArea.TopToolBarArea, dock)
@@ -346,7 +347,7 @@ class Viewer(QtWidgets.QMainWindow):
         self.set_badge(self.state_label, "PC", decisions[-1].state)
         esp = self.source.esp
         if esp is not None:
-            self.esp_label.show()
+            self.esp_action.setVisible(True)
             self.set_badge(self.esp_label, "ESP32", esp.state)
             self.esp_label.setToolTip(f"índice {esp.score:.3f}, umbral {esp.threshold_on:.3f}, "
                                       f"cálculo {esp.proc_us / 1000:.1f} ms")

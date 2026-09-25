@@ -58,3 +58,20 @@
 | Índice de movimiento | ~0.03–0.05 en calma; picos de 0.12 y 0.21 | Responde a movimientos cercanos |
 
 **Pendiente:** alimentación propia para B y los experimentos 1–3 de `guia_fase1.md` a 3–4 m.
+
+## E3-1: Primera prueba del detector en la ESP32 y de la web (placas juntas)
+
+- **Fecha:** 2026-09-25
+- **Montaje:** placas a pocos centímetros; `firmware/rx` con detector y web, `firmware/tx` v1.0.0; visor en la PC y página en `http://192.168.1.29/`.
+- **Resultado:** ✅ todo el sistema funciona de punta a punta.
+
+| Métrica | Valor | Lectura |
+|---|---|---|
+| Paquetes/s | 98–100 | Estable |
+| Perdidos en el aire | 147 de ~28 650 (~0.5 %) | Mejor que en E1-1 (2.5 %) |
+| Índice del detector: PC vs ESP32 | 0.027 vs 0.027 | La implementación en C coincide con Python también en la placa |
+| Eventos | 4 movimientos cortos (1.6–2.8 s) registrados y visibles en la web | El registro de eventos funciona |
+| Memoria libre | 87–88 KB | Suficiente |
+| **Tiempo de cálculo por decisión** | **~61 ms** (estimado antes: 2–5 ms) | Dentro del presupuesto de 200 ms y sin paquetes descartados, pero la estimación falló. La causa es la energía por bandas (DFT de 51 × 100): se desactiva en el receptor porque el detector no la usa (`compute_bands = false`); queda para el clasificador de la fase 5 |
+
+**Detalle corregido:** el cartel "ESP32" del visor no aparecía (en una `QToolBar` hay que mostrar u ocultar la acción que envuelve al widget).
