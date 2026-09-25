@@ -1,0 +1,25 @@
+menu "CSI router test"
+
+    config CSI_WIFI_SSID
+        string "Nombre de la red WiFi (SSID)"
+        default "mi_red"
+        help
+            Red de 2.4 GHz a la que se conecta la placa.
+
+    config CSI_WIFI_PASSWORD
+        string "Contrasena del WiFi"
+        default ""
+
+    config CSI_PING_HZ
+        int "Pings por segundo al router"
+        range 10 200
+        default 100
+        help
+            Cada respuesta del router produce un paquete CSI.
+
+    config CSI_QUEUE_LEN
+        int "Largo de la cola de paquetes CSI"
+        range 8 128
+        default 32
+
+endmenu

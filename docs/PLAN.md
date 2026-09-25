@@ -170,6 +170,7 @@ Como E1–E7 están dentro del alcance, estas decisiones se toman desde la fase 
 escaner_movimiento_esp32/
 ├── firmware/
 │   ├── blink/               # prueba de flasheo (placa B) — ya existe
+│   ├── csi_router_test/     # fase 0: CSI en modo router, salida de texto CSI_DATA — ya existe
 │   ├── rx/                  # proyecto ESP-IDF del receptor
 │   │   └── main/web/        # index.html + app.js embebidos (EMBED_FILES)
 │   ├── tx/                  # proyecto ESP-IDF del transmisor (con OTA desde v0)
@@ -180,13 +181,14 @@ escaner_movimiento_esp32/
 │       └── csi_model/       # (E5) modelo exportado con emlearn
 ├── host/                    # Python
 │   ├── csi_tools/           # fuentes (serial/UDP/archivo), parser, DSP de referencia, features
-│   ├── apps/                # live_view.py, record.py, replay.py, evaluate.py, train.py
+│   ├── apps/                # live_view.py (ya existe: ver, grabar y reproducir), evaluate.py, train.py
 │   ├── notebooks/           # exploración, figuras, experimentos
 │   └── tests/
 ├── data/                    # grabaciones (ignoradas por git salvo data/samples/)
 └── docs/
     ├── PLAN.md              # este documento
     ├── guia_flashear_placa_b.md
+    ├── guia_fase0_csi.md
     ├── protocolo.md         # formato de trama
     └── experimentos.md      # bitácora: qué se probó, resultados, conclusiones
 ```
@@ -241,9 +243,9 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 - Anotar la versión de IDF (`idf.py --version`) y el sistema operativo de la laptop.
 - **Rescatar la placa B con `firmware/blink`** siguiendo `guia_flashear_placa_b.md`, y anotar su MAC.
 - Configurar el router: banda de **2.4 GHz** con **canal fijo** (1, 6 u 11) y **ancho de 20 MHz**; desactivar el cambio automático de canal si se puede. Anotar su MAC.
-- Compilar y flashear el ejemplo de recepción desde router de **esp-csi, tal cual**, en la placa A. Es la forma más rápida de ver CSI real antes de escribir código propio.
+- Flashear `firmware/csi_router_test` en la placa A y ver el CSI en vivo con `host/apps/live_view.py` (guía: `guia_fase0_csi.md`). Se usa un firmware propio y mínimo en lugar del ejemplo de esp-csi porque el ejemplo no desactiva el ahorro de energía del WiFi (tasa de CSI baja e irregular), imprime dentro del callback y depende del registro de componentes. El formato de salida es el mismo `CSI_DATA` de esp-csi, así que sus herramientas siguen sirviendo.
 
-**Terminado cuando:** la placa B parpadea sola con un cargador (o se decidió comprar otra), la placa A imprime CSI con el ejemplo oficial y el canal del router está fijo.
+**Terminado cuando:** la placa B parpadea sola con un cargador (o se decidió comprar otra), el canal del router está fijo y la placa A muestra CSI en el visor con la tasa real medida (`CSI_STATS`) y una grabación quieto/caminando/quieto.
 
 ### Fase 1: captura y visualización (F1–F4, F11 en TX)
 - **1a. Modo router:** firmware RX propio con ping a 100 Hz, protocolo binario, `csi_proto`. En la PC: lector con "fuentes" intercambiables, `live_view.py` y `record.py`.
