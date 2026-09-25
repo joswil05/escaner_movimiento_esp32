@@ -5,7 +5,7 @@
 >
 > **Entorno confirmado:** Windows, ESP-IDF **v5.3.1** (Espressif-IDE + terminal "ESP-IDF 5.3 CMD"), placas ESP32 DevKit V1 de 30 pines (LED en GPIO2).
 > **Placa B rescatada:** se flasheó `blink` por UART usando la placa A como puente; el LED parpadea. ✅
-> Router: proveedor Claro, 802.11n (Wi-Fi 4), 2.4 GHz en **canal 1**, WPA2. Pendiente: fijar el canal y 20 MHz en la configuración del router.
+> Router: cablemódem Kaon DOCSIS 3.0 (Claro), 802.11n, WPA2. **2.4 GHz configurado: canal de control fijo en 1, ancho de banda 20 MHz**, beamforming (BFR/BFE) deshabilitado. ✅
 > Decisiones: **no se usa Home Assistant** → E2 pasa a ser notificaciones al celular (bot de Telegram) con MQTT genérico como opción secundaria. **Hay mascotas** → "mascota" es una clase real en E4/E6. El código Python lo escribe Claude; el usuario lo ejecuta.
 > Placa B: ESP32-D0WD rev **v3.1**, flash 4 MB, **MAC STA `F4:2D:C9:6B:26:C0`**, heap libre sin WiFi ≈ 305 KB.
 > Tipo de proyecto: personal, sin fecha límite. Se avanza por hitos, cada uno con un criterio de "terminado" verificable.
