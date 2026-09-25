@@ -24,6 +24,34 @@ Nombres de pines que vas a usar (vienen serigrafiados en la placa):
 | Modo descarga | botón `BOOT` o `IO0` (es el GPIO0) |
 | Alimentación | `5V` o `VIN`, `3V3` y `GND` |
 
+### Placas de 30 pines (ESP32 DevKit V1 / DOIT y clones)
+
+Pon la placa con la **antena (la zona metálica con la pista en zigzag) hacia arriba** y el conector USB hacia abajo, con los componentes mirando hacia ti:
+
+```
+              ┌──────── antena ────────┐
+   EN   ──  1 │                        │ 1  ── D23 (GPIO23)
+   VP   ──  2 │                        │ 2  ── D22
+   VN   ──  3 │                        │ 3  ── TX0  (GPIO1)
+   D34  ──  4 │                        │ 4  ── RX0  (GPIO3)
+   D35  ──  5 │                        │ 5  ── D21
+   D32  ──  6 │                        │ 6  ── D19
+   D33  ──  7 │                        │ 7  ── D18
+   D25  ──  8 │         ESP32          │ 8  ── D5
+   D26  ──  9 │                        │ 9  ── TX2
+   D27  ── 10 │                        │ 10 ── RX2
+   D14  ── 11 │                        │ 11 ── D4
+   D12  ── 12 │                        │ 12 ── D2   (LED azul)
+   D13  ── 13 │                        │ 13 ── D15
+   GND  ── 14 │                        │ 14 ── GND
+   VIN  ── 15 │ [EN]    USB     [BOOT] │ 15 ── 3V3
+              └────────────────────────┘
+```
+
+- **EN** es el **primer pin de la izquierda, junto a la antena**, arriba de `VP`. En algunos clones la serigrafía está borrosa, escrita como `RST`, o solo en la cara de abajo de la placa. Si tienes dudas, con el multímetro en continuidad: el pin EN pita contra una de las patas del botón `EN`/`RST`.
+- El orden de los lados puede estar espejado según cómo gires la placa. Guíate por las etiquetas `VP`/`VN` (lado de EN) y `TX0`/`RX0` (lado opuesto).
+- Si de verdad no hay pin EN, hay una alternativa: **mantener presionado el botón EN de la placa A** durante todo el proceso (pasos 4–6), con una pinza, cinta o un clip. El efecto es el mismo: el ESP32 de A queda en reset.
+
 ---
 
 ## Paso 1: diagnóstico de la placa B (sin conectarla a la placa A)
