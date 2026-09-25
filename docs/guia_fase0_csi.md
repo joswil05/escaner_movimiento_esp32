@@ -61,32 +61,32 @@ La contraseña queda guardada en el archivo `sdkconfig`, que git **no** sube al 
 
 ```
 idf.py build
-idf.py -p COM3 flash monitor
+idf.py -p COM3 flash
 ```
 
 La placa buena tiene USB sano, así que **no hace falta tocar BOOT ni EN**: entra sola en modo descarga.
 
-### Qué debes ver en el monitor
+Tiene que terminar con `Hash of data verified` y `Hard resetting via RTS pin...`.
+
+> **No uses `idf.py monitor` con este firmware.** La placa manda ~100 líneas de CSI por segundo y la consola de Windows no da abasto: parece congelada (sal con `Ctrl + ]` o cerrando la ventana). En su lugar, el visor del paso 5 reinicia la placa y escribe en la terminal solo los mensajes útiles.
+
+### Qué vas a ver en la terminal del visor (paso 5)
 
 ```
 I (xxx) csi_router: MAC de esta placa: XX:XX:XX:XX:XX:XX
 I (xxx) csi_router: Conectando a "tu_red"...
 I (xxx) csi_router: Router 98:77:e7:2d:f8:74, canal 1, RSSI -45
 I (xxx) csi_router: IP 192.168.1.xx, router 192.168.1.1, ping a 100 Hz
-CSI_DATA,0,98:77:e7:2d:f8:74,-45,11,1,0,0,...,128,0,"[0,0,3,-12,5,...]"
-CSI_DATA,1,...
-...
 CSI_STATS,5012,104,0,-45
+CSI_STATS,6012,101,0,-46
 ```
 
-- Las líneas `CSI_DATA` pasan muy rápido: son ~100 por segundo, y eso es lo esperado.
-- **Lo importante son las líneas `CSI_STATS`**, que salen una vez por segundo: `CSI_STATS,<tiempo_ms>,<paquetes en el último segundo>,<descartados>,<RSSI>`.
+- Las líneas `CSI_DATA` no se muestran en la terminal: van directo a las gráficas.
+- **`CSI_STATS`** sale una vez por segundo con este formato: `CSI_STATS,<tiempo_ms>,<paquetes en el último segundo>,<descartados>,<RSSI>`.
   - El **segundo número** debería rondar **100–110**. Pasa de 100 porque también cuenta los beacons del router.
   - El **tercero** (descartados) debería quedarse en **0** o subir muy poco.
 
-Anota un par de líneas `CSI_STATS` y la línea con la **MAC de esta placa**.
-
-Sal del monitor con **`Ctrl + ]`**. **Importante:** el monitor ocupa el puerto, así que ciérralo antes de abrir el visor.
+Copia la línea con la **MAC de esta placa** y un par de líneas `CSI_STATS`.
 
 ---
 
@@ -164,7 +164,8 @@ python apps\live_view.py --replay ..\data\fase0_prueba1.csv
 | Se queda en `Conectando a "..."` o repite `WiFi desconectado` | SSID o contraseña mal escritos, o la red es solo de 5 GHz | Repite `idf.py menuconfig`, revisa mayúsculas y espacios; usa la red de 2.4 GHz |
 | `CSI_STATS` muestra mucho menos de 100 paquetes/s (por ejemplo 20–50) | El router limita o retrasa las respuestas al ping | Anótalo: es justo lo que queremos medir. La solución es el transmisor dedicado (fase 1) |
 | El segundo número de `CSI_STATS` salta mucho (por ejemplo 40 → 110 → 60) | Interferencia o router ocupado | Anótalo y prueba a otra hora; en fase 1 lo comparamos con el transmisor dedicado |
-| El visor dice `could not open port` o `Access is denied` | El monitor de IDF sigue abierto | Cierra el monitor (`Ctrl + ]`) u otra ventana que use el COM |
+| El visor dice `could not open port` o `Access is denied` | El monitor de IDF u otro programa tiene el puerto abierto | Cierra el monitor (`Ctrl + ]`), el Espressif-IDE u otra ventana que use el COM |
+| La terminal se "congela" con miles de números | Se abrió `idf.py monitor` con este firmware | Es normal; ciérralo y usa el visor |
 | `líneas malas` sube rápido en el visor | Velocidad del puerto incorrecta o cable malo | Revisa que el visor use 921600 (es el valor por defecto) y prueba otro cable USB |
 | El monitor muestra caracteres raros al arrancar | Normal: el arranque de la ROM sale a otra velocidad | Ignóralo; lo que sigue debe verse bien |
 | `Guru Meditation Error` o reinicios | Error del firmware o alimentación débil | Copia el texto completo del error y mándamelo |

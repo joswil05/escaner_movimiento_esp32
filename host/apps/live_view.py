@@ -5,6 +5,9 @@ Uso:
     python apps/live_view.py --port COM3 --record sesion.csv   # ver y grabar
     python apps/live_view.py --replay sesion.csv               # reproducir una grabación
 
+Al abrir el puerto reinicia la placa y escribe en la terminal sus mensajes de arranque
+(MAC, router, IP) y las líneas CSI_STATS; las líneas de CSI solo van a las gráficas.
+
 Muestra:
   - Mapa de calor: amplitud normalizada de las 52 subportadoras en los últimos segundos.
   - Índice de movimiento: sube cuando alguien se mueve entre la placa y el router.
@@ -37,7 +40,10 @@ HISTORY_SECONDS = 60
 class Source:
     """Lee líneas del serial o de una grabación en un hilo y guarda los paquetes parseados."""
 
-    def __init__(self, port: str | None, baud: int, replay: Path | None, record: Path | None):
+    def __init__(self, port: str | None, baud: int, replay: Path | None, record: Path | None,
+                 reset: bool = True):
+        self.echo = replay is None  # en vivo: mostrar en la terminal todo lo que no es CSI
+        self.reset = reset
         self.packets: collections.deque[tuple[float, CsiPacket]] = collections.deque(maxlen=HEATMAP_PACKETS)
         self.arrivals: collections.deque[float] = collections.deque(maxlen=2000)
         self.stats: CsiStats | None = None
@@ -71,8 +77,12 @@ class Source:
                 self.total += 1
         elif isinstance(item, CsiStats):
             self.stats = item
+            if self.echo:
+                print(line, flush=True)
         elif line.startswith("CSI_DATA"):
             self.bad_lines += 1
+        elif self.echo and line:
+            print(line, flush=True)  # mensajes de arranque de la ESP32 (MAC, router, IP...)
         if self._writer and item is not None:
             self._writer.writerow([f"{t:.6f}", line])
 
@@ -82,6 +92,16 @@ class Source:
         port, baud = args
         try:
             with serial.Serial(port, baud, timeout=0.5) as ser:
+                if self.reset:
+                    # Igual que el botón EN: RTS reinicia la placa, DTR alto deja GPIO0 libre
+                    # (arranca el firmware normal, no el modo descarga).
+                    try:
+                        ser.dtr = False
+                        ser.rts = True
+                        time.sleep(0.1)
+                        ser.rts = False
+                    except OSError:
+                        pass  # puertos sin líneas de control
                 while self.running:
                     raw = ser.readline()
                     if raw:
@@ -210,12 +230,13 @@ def main() -> int:
     parser.add_argument("--baud", type=int, default=921600)
     parser.add_argument("--record", type=Path, help="Guardar las líneas recibidas en este CSV")
     parser.add_argument("--replay", type=Path, help="Reproducir un CSV grabado en lugar de leer el serial")
+    parser.add_argument("--no-reset", action="store_true", help="No reiniciar la placa al abrir el puerto")
     args = parser.parse_args()
     if not args.port and not args.replay:
         parser.error("indica --port o --replay")
 
     app = QtWidgets.QApplication(sys.argv)
-    source = Source(args.port, args.baud, args.replay, args.record)
+    source = Source(args.port, args.baud, args.replay, args.record, reset=not args.no_reset)
     viewer = Viewer(source, str(args.replay or args.port))
     viewer.show()
     return app.exec()
