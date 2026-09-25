@@ -19,11 +19,11 @@
 | 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
 | 1. Captura y visualización | 20 % | ~60 % | Enlace TX→RX validado en el hardware (E1-1). Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: alimentación propia del TX, experimentos 1–3 (`guia_fase1.md`), dataset |
 | 2. Detector en PC | 15 % | ~60 % | Hecho: preprocesado (normalización + Hampel), features V/C/bandas, detector adaptativo con histéresis integrado en el visor, `evaluate.py` con barrido de umbrales, tests (`guia_fase2.md`). Falta: ajustar y validar con grabaciones etiquetadas de dos días distintos |
-| 3. Detector en la ESP32 (MVP) | 20 % | 0 % | |
+| 3. Detector en la ESP32 (MVP) | 20 % | ~35 % | Hecho: 3a `csi_dsp` en C, verificado contra Python con datos reales; 3b detector en el receptor con tramas DETECT, comando de recalibración, visor con PC y ESP32 lado a lado, `evaluate.py --source esp` (`guia_fase3.md`). Falta: probar en la placa, 3c web en el celular, 3d prueba de 24 h |
 | 4. UDP, índice de actividad, ntfy | 10 % | 0 % | |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~26 %** | |
+| **Total** | 100 % | **~33 %** | |
 
 ---
 
@@ -111,6 +111,7 @@ Trama: `magic u16 = 0xC51A | versión u8 | tipo u8 | largo u16 | payload | CRC-1
 | `CSI` (1) | Cabecera de 32 bytes (`rx_count`, `tx_seq` del beacon, `rx_seq` 802.11, timestamp de la ESP32, RSSI, ruido, rate, modo, MCS, ancho de banda, canal, `first_word_invalid`, MAC, largo) + CSI crudo |
 | `STATS` (2) | 1/s: paquetes en el último segundo, descartados en el RX, **beacons perdidos en el aire**, RSSI, fuente (TX/router), canal, memoria libre |
 | `LOG` (3) | Líneas de `ESP_LOG` |
+| `DETECT` (5) | Una por decisión del detector de la ESP32 (~5/s): estado, índice, umbrales, las 8 features y el tiempo de cálculo |
 | `TX_INFO` (4) | 1/s: MAC, IP, versión y contadores del transmisor (leídos de sus beacons) |
 
 El beacon ESP-NOW del TX (40 bytes) lleva `magic "CSIT"`, secuencia, tasa, uptime, IP, fallos de envío y versión. El RX lo lee de la trama recibida en el mismo callback de CSI, así cada paquete CSI queda asociado a su número de secuencia.
@@ -189,8 +190,8 @@ escaner_movimiento_esp32/
 │   └── components/
 │       ├── csi_proto/       # formato de trama RX ↔ PC y beacon TX → RX (C puro) — ya existe
 │       ├── csi_wifi/        # conexión WiFi STA compartida por TX y RX — ya existe
-│       ├── csi_dsp/         # features + detector + respiración, en C99 puro (sin IDF)
-│       │   └── test/        # tests en PC: compara con la referencia Python
+│       ├── csi_dsp/         # features + detector en C99 puro (sin IDF) — ya existe
+│       │   └── test/        # host_runner.c: lo usa host/tests/test_csi_dsp.py para comparar con Python
 │       └── csi_model/       # (E5) modelo exportado con emlearn
 ├── host/                    # Python
 │   ├── csi_tools/           # esp_text/proto (decodificadores), recording (.csirec + .json), dsp (features), detector
@@ -204,6 +205,7 @@ escaner_movimiento_esp32/
     ├── guia_fase0_csi.md
     ├── guia_fase1.md
     ├── guia_fase2.md
+    ├── guia_fase3.md
     ├── (protocolo)          # el formato de trama está documentado en csi_proto.h y proto.py
     └── experimentos.md      # bitácora: qué se probó, resultados, conclusiones
 ```

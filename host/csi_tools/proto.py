@@ -22,12 +22,15 @@ VERSION = 1
 HEADER = struct.Struct("<HBBH")          # magic, version, type, len
 MAX_PAYLOAD = 1024
 
-T_CSI, T_STATS, T_LOG, T_TX_INFO = 1, 2, 3, 4
+T_CSI, T_STATS, T_LOG, T_TX_INFO, T_DETECT = 1, 2, 3, 4, 5
+CMD_RECALIBRATE = b"R"
 
 CSI_HDR = struct.Struct("<IIHIbbBBBBBBBB6sH")      # csi_frame_csi_t (32 bytes)
 STATS = struct.Struct("<IHHIIbBBBI")               # csi_frame_stats_t (24 bytes)
 BEACON = struct.Struct("<IHHIIII16s")              # csi_tx_beacon_t (40 bytes)
 TX_INFO = struct.Struct("<6s" + BEACON.format[1:])  # csi_frame_tx_info_t
+DETECT = struct.Struct("<IBBH3f8f")                # csi_frame_detect_t (52 bytes)
+ESP_STATES = {0: "CALIBRANDO", 1: "QUIETO", 2: "MOVIMIENTO"}
 
 SOURCES = {0: "router", 1: "tx"}
 
@@ -41,6 +44,19 @@ class TxInfo:
     ip: str
     send_fail: int
     fw_version: str
+
+
+@dataclass
+class EspDecision:
+    """Decisión del detector que corre dentro de la ESP32 (csi_dsp)."""
+    uptime_ms: int
+    state: str
+    feature: str
+    proc_us: int
+    score: float
+    threshold_on: float
+    threshold_off: float
+    features: tuple
 
 
 def crc16(data: bytes) -> int:
@@ -80,6 +96,10 @@ def decode_payload(ftype: int, payload: bytes):
         mac, _magic, _ver, rate_hz, seq, uptime, ip, fail, fw = TX_INFO.unpack_from(payload)
         return TxInfo(_mac(mac), seq, rate_hz, uptime, str(ipaddress.IPv4Address(struct.pack("<I", ip))),
                       fail, fw.split(b"\0", 1)[0].decode("ascii", "replace"))
+    if ftype == T_DETECT and len(payload) >= DETECT.size:
+        v = DETECT.unpack_from(payload)
+        return EspDecision(v[0], ESP_STATES.get(v[1], "?"), "decorrelation" if v[2] else "variance", v[3],
+                           v[4], v[5], v[6], tuple(v[7:]))
     if ftype == T_LOG:
         return payload.decode("utf-8", "replace")
     return None

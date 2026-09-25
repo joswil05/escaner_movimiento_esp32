@@ -53,6 +53,15 @@ def test_decode_mixed_stream_split_in_chunks():
     assert dec.crc_errors == 0
 
 
+def test_decode_esp_decision():
+    from csi_tools.proto import DETECT, T_DETECT, EspDecision
+    payload = DETECT.pack(5000, 2, 0, 3100, 0.12, 0.09, 0.07, *range(8))
+    (d,) = StreamDecoder().feed(build_frame(T_DETECT, payload))
+    assert isinstance(d, EspDecision)
+    assert (d.state, d.feature, d.proc_us) == ("MOVIMIENTO", "variance", 3100)
+    assert abs(d.score - 0.12) < 1e-6 and d.features[7] == 7
+
+
 def test_corrupted_frame_is_skipped_and_stream_resyncs():
     bad = bytearray(csi_frame(rx_count=1))
     bad[40] ^= 0xFF
@@ -90,6 +99,7 @@ int main(int argc, char **argv) {
     _Static_assert(sizeof(csi_frame_csi_t) == 32, "csi");
     _Static_assert(sizeof(csi_frame_stats_t) == 24, "stats");
     _Static_assert(sizeof(csi_tx_beacon_t) == 40, "beacon");
+    _Static_assert(sizeof(csi_frame_detect_t) == 52, "detect");
     csi_frame_csi_t h = {0};
     h.rx_count = 9; h.tx_seq = 1234; h.rx_seq = 55; h.rssi = -60; h.channel = 6; h.csi_len = 128;
     int8_t csi[128];

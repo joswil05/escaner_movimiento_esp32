@@ -4,6 +4,7 @@ Uso:
     python apps/evaluate.py ../data/e1_tx.csirec ../data/e3_vacio_10min.csirec
     python apps/evaluate.py ../data/*.csirec --feature decorrelation
     python apps/evaluate.py ../data/*.csirec --sweep          # prueba varias combinaciones de umbrales
+    python apps/evaluate.py ../data/e1_tx.csirec --source esp # evalúa lo que decidió la ESP32 (firmware rx)
 
 Verdad de referencia (del .json de etiquetas):
   - Un "movimiento" va de una marca `Espacio` (inicio) a la siguiente (fin).
@@ -28,6 +29,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from csi_tools.detector import CALIBRATING, MOTION, DetectorConfig, MotionDetector  # noqa: E402
 from csi_tools.esp_text import CsiPacket  # noqa: E402
+from csi_tools.proto import EspDecision  # noqa: E402
 from csi_tools.recording import load_labels, read_items  # noqa: E402
 
 MARGIN_S = 2.0
@@ -103,8 +105,16 @@ def simulate(track, cfg: DetectorConfig):
     return out
 
 
-def evaluate(name: str, track, events: list[dict], cfg: DetectorConfig) -> Result:
-    decisions = [(t, st) for t, st in simulate(track, cfg) if st != CALIBRATING]
+def esp_decisions(path: Path) -> list[tuple[float, str]]:
+    """Decisiones que tomó el detector de la ESP32, grabadas como tramas DETECT."""
+    return [(t, item.state) for t, item in read_items(path) if isinstance(item, EspDecision)]
+
+
+def evaluate(name: str, track, events: list[dict], cfg: DetectorConfig, decisions=None) -> Result:
+    """`decisions` = lista (t, estado) ya calculada (ESP32); si falta, se simula el detector de la PC."""
+    if decisions is None:
+        decisions = simulate(track, cfg)
+    decisions = [(t, st) for t, st in decisions if st != CALIBRATING]
     intervals = motion_intervals(events)
     times = np.array([t for t, _ in decisions])
     moving = np.array([st == MOTION for _, st in decisions], dtype=bool)
@@ -153,6 +163,8 @@ def main() -> int:
     parser.add_argument("files", nargs="+", type=Path)
     parser.add_argument("--feature", default="variance", choices=["variance", "decorrelation"])
     parser.add_argument("--sweep", action="store_true", help="probar una grilla de umbrales y ordenar por resultado")
+    parser.add_argument("--source", choices=["pc", "esp"], default="pc",
+                        help="pc: simular el detector de Python; esp: usar las decisiones grabadas de la ESP32")
     args = parser.parse_args()
 
     data = []
@@ -164,17 +176,21 @@ def main() -> int:
             continue
         if not events:
             print(f"{f.name}: sin etiquetas (.json); solo se muestra la línea de tiempo")
-        data.append((f.name, feature_track(packets, DetectorConfig()), events))
+        esp = esp_decisions(f) if args.source == "esp" else None
+        if args.source == "esp" and not esp:
+            print(f"{f.name}: no tiene decisiones de la ESP32 (grabado con otro firmware), se omite")
+            continue
+        data.append((f.name, feature_track(packets, DetectorConfig()) if esp is None else None, events, esp))
 
     base_cfg = DetectorConfig(feature=args.feature)
     if not args.sweep:
         results = []
-        for name, track, events in data:
+        for name, track, events, esp in data:
             if not events:
                 print(f"{name}: línea de tiempo (1 carácter = 1 s; # movimiento, c calibrando, . quieto)")
-                print("  " + timeline(simulate(track, base_cfg)))
+                print("  " + timeline(esp if esp is not None else simulate(track, base_cfg)))
                 continue
-            r = evaluate(name, track, events, base_cfg)
+            r = evaluate(name, track, events, base_cfg, esp)
             results.append(r)
             lat = f"{np.median(r.latencies):.2f} s" if r.latencies else "—"
             print(f"{name}: movimientos detectados {r.detected}/{r.events}, latencia mediana {lat}, "
@@ -183,15 +199,18 @@ def main() -> int:
         if not results:
             return 0
         rate, fah, lat = summarize(results)
-        print(f"\nTOTAL ({args.feature}): detección {100 * rate:.0f} %, falsas alarmas {fah:.1f}/h, "
+        who = "ESP32" if args.source == "esp" else args.feature
+        print(f"\nTOTAL ({who}): detección {100 * rate:.0f} %, falsas alarmas {fah:.1f}/h, "
               f"latencia mediana {lat:.2f} s")
         return 0
 
+    if args.source == "esp":
+        parser.error("--sweep solo funciona con --source pc (los umbrales de la ESP32 ya están aplicados)")
     grid = itertools.product([4.0, 6.0, 8.0], [1.3, 1.6, 2.0], [1, 2, 3], ["variance", "decorrelation"])
     rows = []
     for k_on, ratio_on, n_on, feat in grid:
         cfg = replace(base_cfg, k_on=k_on, ratio_on=ratio_on, n_on=n_on, feature=feat)
-        rate, fah, lat = summarize([evaluate(n, tr, e, cfg) for n, tr, e in data])
+        rate, fah, lat = summarize([evaluate(n, tr, e, cfg) for n, tr, e, _ in data])
         rows.append((rate, fah, lat, feat, k_on, ratio_on, n_on))
     # Primero: detectar casi todo; luego menos falsas alarmas; luego menor latencia
     rows.sort(key=lambda r: (-(round(r[0], 2) if r[0] == r[0] else -1), r[1] if r[1] == r[1] else 1e9, r[2]))

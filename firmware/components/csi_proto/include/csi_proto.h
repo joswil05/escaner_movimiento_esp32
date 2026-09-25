@@ -29,7 +29,11 @@ typedef enum {
     CSI_FRAME_STATS = 2,   /* csi_frame_stats_t, una vez por segundo */
     CSI_FRAME_LOG = 3,     /* texto de log (ESP_LOG), sin terminador */
     CSI_FRAME_TX_INFO = 4, /* csi_frame_tx_info_t, una vez por segundo si hay transmisor */
+    CSI_FRAME_DETECT = 5,  /* csi_frame_detect_t, una por decisión del detector de la ESP32 */
 } csi_frame_type_t;
+
+/* Comandos de un byte que la PC puede enviar al receptor por el mismo puerto serial. */
+#define CSI_CMD_RECALIBRATE 'R'
 
 typedef enum {
     CSI_SOURCE_ROUTER = 0, /* CSI de las respuestas del router al ping */
@@ -68,6 +72,17 @@ typedef struct __attribute__((packed)) {
     uint8_t reserved2;
     uint32_t free_heap;
 } csi_frame_stats_t;
+
+typedef struct __attribute__((packed)) {
+    uint32_t uptime_ms;
+    uint8_t state;           /* 0 calibrando, 1 quieto, 2 movimiento */
+    uint8_t feature;         /* 0 varianza (V), 1 decorrelación (C) */
+    uint16_t proc_us;        /* tiempo de cálculo de esta decisión */
+    float score;
+    float threshold_on;
+    float threshold_off;
+    float features[8];       /* V, C, banda 1-3, 3-10, 10-40 Hz, RSSI medio, RSSI desvío, tasa */
+} csi_frame_detect_t;
 
 /* Beacon que el TX envía por ESP-NOW (va dentro de la trama 802.11). */
 #define CSI_TX_BEACON_MAGIC 0x54495343u /* "CSIT" */

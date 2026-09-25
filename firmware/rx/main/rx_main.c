@@ -7,14 +7,17 @@
  *   - Router: le hace ping al router y usa sus respuestas (igual que csi_router_test).
  *
  * Toda la salida por UART0 va en tramas binarias (csi_proto.h), incluidos los logs:
- *   CSI (una por paquete), STATS (1/s), TX_INFO (1/s) y LOG.
- * El callback de CSI solo filtra, copia y encola; el armado de tramas se hace en otra tarea.
+ *   CSI (una por paquete), DETECT (una por decisión, ~5/s), STATS (1/s), TX_INFO (1/s) y LOG.
+ * El callback de CSI solo filtra, copia y encola; el armado de tramas y el detector de
+ * movimiento (csi_dsp, el mismo algoritmo que host/csi_tools/detector.py) corren en otra tarea.
+ * La PC puede enviar comandos de un byte por el mismo puerto: 'R' = recalibrar el detector.
  */
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "csi_dsp.h"
 #include "csi_proto.h"
 #include "csi_wifi.h"
 #include "driver/uart.h"
@@ -59,6 +62,9 @@ static volatile uint32_t s_tx_lost;
 static volatile int8_t s_last_rssi;
 static volatile bool s_have_tx_info;
 static csi_frame_tx_info_t s_tx_info;
+
+static csi_detector_t s_detector; /* ~61 KB: ventana de 1 s y búferes de trabajo */
+static volatile bool s_recalibrate;
 
 /* ---------- Salida en tramas ---------- */
 
@@ -180,12 +186,63 @@ static void csi_cb(void *ctx, wifi_csi_info_t *info)
     }
 }
 
+static void run_detector(const csi_item_t *item)
+{
+    if (s_recalibrate) {
+        s_recalibrate = false;
+        csi_detector_recalibrate(&s_detector);
+        ESP_LOGI(TAG, "Detector: recalibrando");
+    }
+    float amp[CSI_DSP_NSC];
+    if (!csi_dsp_amplitude(item->buf, item->hdr.csi_len, item->hdr.first_word_invalid, amp)) {
+        return;
+    }
+    int64_t t0 = esp_timer_get_time();
+    if (!csi_detector_push(&s_detector, amp, item->hdr.rssi, item->hdr.local_ts)) {
+        return;
+    }
+    int64_t dt = esp_timer_get_time() - t0;
+
+    static csi_state_t s_prev = CSI_STATE_CALIBRATING;
+    const csi_decision_t *d = &s_detector.last;
+    csi_frame_detect_t f = {
+        .uptime_ms = (uint32_t)(esp_timer_get_time() / 1000),
+        .state = (uint8_t)d->state,
+        .feature = (uint8_t)s_detector.cfg.feature,
+        .proc_us = (uint16_t)(dt > 65535 ? 65535 : dt),
+        .score = d->score,
+        .threshold_on = d->threshold_on,
+        .threshold_off = d->threshold_off,
+        .features = {d->features.variance, d->features.decorrelation, d->features.band_1_3,
+                     d->features.band_3_10, d->features.band_10_40, d->features.rssi_mean,
+                     d->features.rssi_std, d->features.rate_hz},
+    };
+    send_frame(CSI_FRAME_DETECT, &f, sizeof(f), NULL, 0);
+    if (d->state != s_prev) {
+        ESP_LOGI(TAG, "Detector: %s (indice %.3f, umbral %.3f, %u us)", csi_state_name(d->state), d->score,
+                 d->threshold_on, f.proc_us);
+        s_prev = d->state;
+    }
+}
+
 static void out_task(void *arg)
 {
     static csi_item_t item;
     while (true) {
         if (xQueueReceive(s_queue, &item, portMAX_DELAY) == pdTRUE) {
             send_frame(CSI_FRAME_CSI, &item.hdr, sizeof(item.hdr), item.buf, item.hdr.csi_len);
+            run_detector(&item);
+        }
+    }
+}
+
+/* Comandos de la PC por el puerto serial. */
+static void cmd_task(void *arg)
+{
+    uint8_t c;
+    while (true) {
+        if (uart_read_bytes(UART_PORT, &c, 1, portMAX_DELAY) == 1 && c == CSI_CMD_RECALIBRATE) {
+            s_recalibrate = true;
         }
     }
 }
@@ -288,7 +345,12 @@ void app_main(void)
     ESP_LOGI(TAG, "Fuente: router");
 #endif
 
-    xTaskCreatePinnedToCore(out_task, "csi_out", 4096, NULL, 5, NULL, 1);
+    csi_detector_init(&s_detector, NULL);
+    ESP_LOGI(TAG, "Detector: ventana %d, decision cada %d paquetes, calibracion %d ventanas", s_detector.cfg.window,
+             s_detector.cfg.hop, s_detector.cfg.calib_windows);
+
+    xTaskCreatePinnedToCore(out_task, "csi_out", 6144, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(cmd_task, "csi_cmd", 2048, NULL, 3, NULL, 0);
     xTaskCreatePinnedToCore(stats_task, "csi_stats", 3072, NULL, 4, NULL, 1);
     csi_start();
 #if CONFIG_CSI_RX_SOURCE_ROUTER

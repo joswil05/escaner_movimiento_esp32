@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from csi_tools.esp_text import LLTF_SUBCARRIER_NUMBERS, CsiPacket, CsiStats  # noqa: E402
 from csi_tools.detector import CALIBRATING, MOTION, Decision, DetectorConfig, MotionDetector  # noqa: E402
 from csi_tools.dsp import normalize_per_packet  # noqa: E402
-from csi_tools.proto import StreamDecoder, TxInfo  # noqa: E402
+from csi_tools.proto import CMD_RECALIBRATE, EspDecision, StreamDecoder, TxInfo  # noqa: E402
 from csi_tools.recording import RecordingWriter, load_labels, read_blocks  # noqa: E402
 
 HEATMAP_PACKETS = 600   # ~6 s a 100 Hz
@@ -64,6 +64,8 @@ class Source:
         self.arrivals: collections.deque[float] = collections.deque(maxlen=2000)
         self.stats: CsiStats | None = None
         self.tx_info: TxInfo | None = None
+        self.esp: EspDecision | None = None   # última decisión del detector de la ESP32 (firmware rx)
+        self._serial = None
         self.total = 0
         self.bad_lines = 0
         self.backlog = 0  # bytes esperando en el puerto: si crece, la PC va atrasada
@@ -100,9 +102,12 @@ class Source:
                 if self.echo:
                     lost = f", perdidos en el aire {item.tx_lost_total}" if item.source == "tx" else ""
                     print(f"[stats] {item.received_1s} paq/s, descartados {item.dropped_total}{lost}, "
-                          f"RSSI {item.rssi} dBm", flush=True)
+                          f"RSSI {item.rssi} dBm" + (f", memoria libre {item.free_heap // 1024} KB" if item.free_heap else ""),
+                          flush=True)
             elif isinstance(item, TxInfo):
                 self.tx_info = item
+            elif isinstance(item, EspDecision):
+                self.esp = item
             elif isinstance(item, str):
                 if item.startswith("CSI_DATA"):
                     self.bad_lines += 1
@@ -115,6 +120,7 @@ class Source:
         port, baud = args
         try:
             with serial.Serial(port, baud, timeout=0.5) as ser:
+                self._serial = ser
                 if self.reset:
                     # Igual que el botón EN: RTS reinicia la placa, DTR alto deja GPIO0 libre
                     # (arranca el firmware normal, no el modo descarga).
@@ -169,11 +175,20 @@ class Source:
             return list(self.packets), list(self.arrivals), list(self.decisions)
 
     def recalibrate(self) -> None:
+        """Recalibra el detector de la PC y, si hay placa conectada, también el de la ESP32."""
         with self.lock:
             self.detector.recalibrate()
+        if self._serial is not None:
+            try:
+                self._serial.write(CMD_RECALIBRATE)
+            except Exception as exc:
+                print(f"⚠ No se pudo enviar el comando a la placa: {exc}", flush=True)
 
     def close(self) -> None:
         self.running = False
+        # Esperar a que el hilo lector termine su última lectura antes de cerrar la grabación
+        if self.thread.is_alive() and threading.current_thread() is not self.thread:
+            self.thread.join(timeout=1.5)
         if self.writer:
             self.writer.close()
 
@@ -195,10 +210,15 @@ class Viewer(QtWidgets.QMainWindow):
         self.label_bar = QtWidgets.QLabel()
         self.label_bar.setStyleSheet("padding: 4px; font-size: 13px;")
         self.state_label = QtWidgets.QLabel()
-        self.state_label.setMinimumWidth(170)
+        self.state_label.setMinimumWidth(190)
         self.state_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.esp_label = QtWidgets.QLabel()
+        self.esp_label.setMinimumWidth(190)
+        self.esp_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.esp_label.hide()
         dock = QtWidgets.QToolBar()
         dock.addWidget(self.state_label)
+        dock.addWidget(self.esp_label)
         dock.addWidget(self.label_bar)
         dock.setMovable(False)
         self.addToolBar(QtCore.Qt.ToolBarArea.TopToolBarArea, dock)
@@ -291,7 +311,7 @@ class Viewer(QtWidgets.QMainWindow):
 
     STATE_STYLE = {
         MOTION: ("● MOVIMIENTO", "#ffffff", "#c0392b"),
-        CALIBRATING: ("CALIBRANDO… quieto", "#000000", "#f1c40f"),
+        CALIBRATING: ("CALIBRANDO…", "#000000", "#f1c40f"),
     }
 
     def draw_detector(self, decisions: list[Decision], now: float) -> float:
@@ -323,12 +343,20 @@ class Viewer(QtWidgets.QMainWindow):
                 self.motion_bands.append(band)
                 start = None
 
-        state = decisions[-1].state
-        text, fg, bg = self.STATE_STYLE.get(state, ("QUIETO", "#ffffff", "#27ae60"))
-        self.state_label.setText(text)
-        self.state_label.setStyleSheet(f"color: {fg}; background: {bg}; font-weight: bold; font-size: 15px; "
-                                       "padding: 4px 10px; border-radius: 4px;")
+        self.set_badge(self.state_label, "PC", decisions[-1].state)
+        esp = self.source.esp
+        if esp is not None:
+            self.esp_label.show()
+            self.set_badge(self.esp_label, "ESP32", esp.state)
+            self.esp_label.setToolTip(f"índice {esp.score:.3f}, umbral {esp.threshold_on:.3f}, "
+                                      f"cálculo {esp.proc_us / 1000:.1f} ms")
         return float(score[-1])
+
+    def set_badge(self, label: QtWidgets.QLabel, who: str, state: str) -> None:
+        text, fg, bg = self.STATE_STYLE.get(state, ("QUIETO", "#ffffff", "#27ae60"))
+        label.setText(f"{who}: {text}")
+        label.setStyleSheet(f"color: {fg}; background: {bg}; font-weight: bold; font-size: 14px; "
+                            "padding: 4px 10px; border-radius: 4px; margin-right: 6px;")
 
     # ---------- refresco ----------
 
@@ -374,6 +402,9 @@ class Viewer(QtWidgets.QMainWindow):
             parts.append(f"ESP32: {st.received_1s} paq/s, descartados {st.dropped_total}")
             if st.source == "tx":
                 parts.append(f"perdidos en el aire {st.tx_lost_total}")
+        esp = self.source.esp
+        if esp:
+            parts.append(f"detector ESP32: índice {esp.score:.3f}, {esp.proc_us / 1000:.1f} ms")
         tx = self.source.tx_info
         if tx:
             parts.append(f"TX {tx.ip} ({tx.fw_version})")
