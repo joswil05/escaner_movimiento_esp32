@@ -27,7 +27,7 @@ idf.py set-target esp32
 idf.py menuconfig
 ```
 
-- Entra en **`CSI WiFi`** y escribe el **nombre** y la **contraseña** de tu red de 2.4 GHz, igual que en la fase 0.
+- Entra en **`Component config` → `CSI WiFi`** (está dentro de "Component config", en orden alfabético) y escribe el **nombre** y la **contraseña** de tu red de 2.4 GHz, igual que en la fase 0.
 - `CSI transmisor` ya viene bien configurado (100 beacons/s, LED en GPIO2). No hace falta tocarlo.
 - Pulsa **S** para guardar y **Q** para salir.
 
@@ -76,7 +76,7 @@ idf.py set-target esp32
 idf.py menuconfig
 ```
 
-- **`CSI WiFi`**: el mismo nombre y contraseña.
+- **`Component config` → `CSI WiFi`**: el mismo nombre y contraseña.
 - **`CSI receptor`**:
   - **Fuente de CSI** = `Transmisor dedicado (ESP-NOW)`. Es la opción por defecto.
   - **MAC del transmisor** = `F4:2D:C9:6B:26:C0`. Ya viene escrita.
