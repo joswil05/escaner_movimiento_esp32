@@ -7,6 +7,7 @@ Detección de movimiento humano usando el Channel State Information (CSI) del Wi
 - [docs/guia_flashear_placa_b.md](docs/guia_flashear_placa_b.md): programar la ESP32 sin USB usando la otra placa como puente.
 - [docs/guia_fase0_csi.md](docs/guia_fase0_csi.md): ver CSI real en vivo (firmware + visor).
 - [docs/guia_fase1.md](docs/guia_fase1.md): transmisor dedicado, receptor binario y grabaciones etiquetadas.
+- [docs/guia_fase2.md](docs/guia_fase2.md): detector de movimiento (visor en vivo y evaluación con métricas).
 - [docs/experimentos.md](docs/experimentos.md): bitácora de experimentos y resultados.
 
 ## Contenido
@@ -17,6 +18,6 @@ Detección de movimiento humano usando el Channel State Information (CSI) del Wi
 | `firmware/tx` | Transmisor (placa B): beacons ESP-NOW a 100 Hz, actualización OTA por WiFi con rollback |
 | `firmware/rx` | Receptor (placa A): CSI del transmisor o del router → PC en tramas binarias con CRC |
 | `firmware/components` | `csi_proto` (protocolo compartido) y `csi_wifi` (conexión WiFi) |
-| `host/` | Python: `apps/live_view.py` (ver, grabar, etiquetar, reproducir), `apps/link_stats.py` (estadísticas), `csi_tools/` |
+| `host/` | Python: `apps/live_view.py` (ver, grabar, etiquetar, detector en vivo), `apps/link_stats.py`, `apps/evaluate.py` (métricas del detector), `csi_tools/` |
 
-Estado: fase 0 completa; fase 1 con firmware y herramientas listos, pendiente de validar en el hardware (~15 % del total).
+Estado: fase 0 completa; fase 1 con el enlace TX→RX validado (faltan los experimentos a distancia); fase 2 con el detector listo, pendiente de ajustar con datos etiquetados (~26 % del total).

@@ -35,12 +35,12 @@ from pyqtgraph.Qt import QtCore, QtWidgets
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from csi_tools.esp_text import LLTF_SUBCARRIER_NUMBERS, CsiPacket, CsiStats  # noqa: E402
-from csi_tools.features import motion_index, normalize_per_packet  # noqa: E402
+from csi_tools.detector import CALIBRATING, MOTION, Decision, DetectorConfig, MotionDetector  # noqa: E402
+from csi_tools.dsp import normalize_per_packet  # noqa: E402
 from csi_tools.proto import StreamDecoder, TxInfo  # noqa: E402
 from csi_tools.recording import RecordingWriter, load_labels, read_blocks  # noqa: E402
 
 HEATMAP_PACKETS = 600   # ~6 s a 100 Hz
-MOTION_WINDOW = 100     # ~1 s
 HISTORY_SECONDS = 60
 
 SCENARIOS = {
@@ -68,6 +68,8 @@ class Source:
         self.bad_lines = 0
         self.backlog = 0  # bytes esperando en el puerto: si crece, la PC va atrasada
         self.decoder = StreamDecoder()
+        self.detector = MotionDetector(DetectorConfig())
+        self.decisions: collections.deque[Decision] = collections.deque(maxlen=HISTORY_SECONDS * 10)
         self.lock = threading.Lock()
         self.running = True
         self.error: str | None = None
@@ -86,10 +88,13 @@ class Source:
                 except ValueError:
                     self.bad_lines += 1
                     continue
+                decision = self.detector.update(amp, item.rssi, item.local_timestamp, t)
                 with self.lock:
                     self.packets.append((t, item, amp))
                     self.arrivals.append(t)
                     self.total += 1
+                    if decision:
+                        self.decisions.append(decision)
             elif isinstance(item, CsiStats):
                 self.stats = item
                 if self.echo:
@@ -161,7 +166,11 @@ class Source:
 
     def snapshot(self):
         with self.lock:
-            return list(self.packets), list(self.arrivals)
+            return list(self.packets), list(self.arrivals), list(self.decisions)
+
+    def recalibrate(self) -> None:
+        with self.lock:
+            self.detector.recalibrate()
 
     def close(self) -> None:
         self.running = False
@@ -185,7 +194,11 @@ class Viewer(QtWidgets.QMainWindow):
 
         self.label_bar = QtWidgets.QLabel()
         self.label_bar.setStyleSheet("padding: 4px; font-size: 13px;")
+        self.state_label = QtWidgets.QLabel()
+        self.state_label.setMinimumWidth(170)
+        self.state_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         dock = QtWidgets.QToolBar()
+        dock.addWidget(self.state_label)
         dock.addWidget(self.label_bar)
         dock.setMovable(False)
         self.addToolBar(QtCore.Qt.ToolBarArea.TopToolBarArea, dock)
@@ -205,10 +218,13 @@ class Viewer(QtWidgets.QMainWindow):
         self.heat_plot.getAxis("left").setTicks([ticks])
 
         # 2) Índice de movimiento, con las marcas de etiquetas
-        self.motion_plot = central.addPlot(row=1, col=0, title="Índice de movimiento (ventana de ~1 s)")
+        self.motion_plot = central.addPlot(
+            row=1, col=0, title="Detector: índice de movimiento (naranja), umbral de activación (rojo) y de liberación (verde)")
         self.motion_plot.setLabel("bottom", "Segundos atrás")
         self.motion_curve = self.motion_plot.plot(pen=pg.mkPen("#f5a623", width=2))
-        self.motion_hist: collections.deque[tuple[float, float]] = collections.deque()
+        self.on_curve = self.motion_plot.plot(pen=pg.mkPen("#e06666", width=1, style=QtCore.Qt.PenStyle.DashLine))
+        self.off_curve = self.motion_plot.plot(pen=pg.mkPen("#6aa84f", width=1, style=QtCore.Qt.PenStyle.DashLine))
+        self.motion_bands: list = []
         self.event_lines: list[pg.InfiniteLine] = []
 
         # 3) Tasa de paquetes y RSSI
@@ -233,7 +249,8 @@ class Viewer(QtWidgets.QMainWindow):
         rec = "● GRABANDO" if self.recording else "sin grabar"
         mov = "  |  MOVIMIENTO en curso" if self.moving else ""
         self.label_bar.setText(f"{rec}  |  Escenario: {self.scenario}{mov}  |  "
-                               "Teclas: 0-6 escenario · Espacio inicio/fin de movimiento · N nota")
+                               "Teclas: 0-6 escenario · Espacio inicio/fin de movimiento · N nota · "
+                               "R recalibrar (quédate quieto)")
 
     def keyPressEvent(self, event) -> None:
         key = event.text().lower()
@@ -243,6 +260,9 @@ class Viewer(QtWidgets.QMainWindow):
         elif key == " ":
             self.moving = not self.moving
             self.source.add_event("motion_start" if self.moving else "motion_end")
+        elif key == "r":
+            self.source.recalibrate()
+            self.source.add_event("note", "recalibrado")
         elif key == "n":
             text, ok = QtWidgets.QInputDialog.getText(self, "Nota", "Nota para esta grabación:")
             if ok and text:
@@ -267,6 +287,49 @@ class Viewer(QtWidgets.QMainWindow):
                 self.motion_plot.addItem(line)
                 self.event_lines.append(line)
 
+    # ---------- detector ----------
+
+    STATE_STYLE = {
+        MOTION: ("● MOVIMIENTO", "#ffffff", "#c0392b"),
+        CALIBRATING: ("CALIBRANDO… quieto", "#000000", "#f1c40f"),
+    }
+
+    def draw_detector(self, decisions: list[Decision], now: float) -> float:
+        """Dibuja score y umbrales, sombrea los tramos en MOVIMIENTO y actualiza el cartel de estado."""
+        for band in self.motion_bands:
+            self.motion_plot.removeItem(band)
+        self.motion_bands = []
+        if not decisions:
+            self.state_label.setText("esperando datos")
+            return 0.0
+        t = np.array([d.t for d in decisions]) - now
+        score = np.array([d.score for d in decisions])
+        calibrated = np.array([d.state != CALIBRATING for d in decisions])
+        self.motion_curve.setData(t, score)
+        on = np.array([d.threshold_on for d in decisions])
+        off = np.array([d.threshold_off for d in decisions])
+        self.on_curve.setData(t[calibrated], on[calibrated])
+        self.off_curve.setData(t[calibrated], off[calibrated])
+
+        moving = np.array([d.state == MOTION for d in decisions])
+        start = None
+        for i, m in enumerate(np.append(moving, False)):
+            if m and start is None:
+                start = t[i]
+            elif not m and start is not None:
+                band = pg.LinearRegionItem(values=(start, t[i - 1]), brush=(224, 102, 102, 50), movable=False,
+                                           pen=pg.mkPen(None))
+                self.motion_plot.addItem(band)
+                self.motion_bands.append(band)
+                start = None
+
+        state = decisions[-1].state
+        text, fg, bg = self.STATE_STYLE.get(state, ("QUIETO", "#ffffff", "#27ae60"))
+        self.state_label.setText(text)
+        self.state_label.setStyleSheet(f"color: {fg}; background: {bg}; font-weight: bold; font-size: 15px; "
+                                       "padding: 4px 10px; border-radius: 4px;")
+        return float(score[-1])
+
     # ---------- refresco ----------
 
     def refresh(self) -> None:
@@ -278,7 +341,7 @@ class Viewer(QtWidgets.QMainWindow):
             self.status.setText(f"⚠ Error al dibujar: {exc}")
 
     def _refresh(self) -> None:
-        packets, arrivals = self.source.snapshot()
+        packets, arrivals, decisions = self.source.snapshot()
         now = time.time()
         if self.source.error:
             self.status.setText(f"⚠ {self.source.error}")
@@ -291,18 +354,13 @@ class Viewer(QtWidgets.QMainWindow):
         self.heat_img.setImage(heat, autoLevels=False, levels=(0.0, 2.0))
         self.heat_img.setRect(self.heat_rect)
 
-        mi = motion_index(amps[-MOTION_WINDOW:])
         rate = sum(1 for t in arrivals if now - t <= 1.0)
         rssi = packets[-1][1].rssi
-        self.motion_hist.append((now, mi))
         self.rate_hist.append((now, rate, rssi))
-        while self.motion_hist and now - self.motion_hist[0][0] > HISTORY_SECONDS:
-            self.motion_hist.popleft()
         while self.rate_hist and now - self.rate_hist[0][0] > HISTORY_SECONDS:
             self.rate_hist.popleft()
 
-        mh = np.array(self.motion_hist)
-        self.motion_curve.setData(mh[:, 0] - now, mh[:, 1])
+        mi = self.draw_detector(decisions, now)
         rh = np.array(self.rate_hist)
         self.rate_curve.setData(rh[:, 0] - now, rh[:, 1])
         self.rssi_curve.setData(rh[:, 0] - now, rh[:, 2])

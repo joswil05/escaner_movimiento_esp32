@@ -18,12 +18,12 @@
 |---|---|---|---|
 | 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
 | 1. Captura y visualización | 20 % | ~60 % | Enlace TX→RX validado en el hardware (E1-1). Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: alimentación propia del TX, experimentos 1–3 (`guia_fase1.md`), dataset |
-| 2. Detector en PC | 15 % | 0 % | |
+| 2. Detector en PC | 15 % | ~60 % | Hecho: preprocesado (normalización + Hampel), features V/C/bandas, detector adaptativo con histéresis integrado en el visor, `evaluate.py` con barrido de umbrales, tests (`guia_fase2.md`). Falta: ajustar y validar con grabaciones etiquetadas de dos días distintos |
 | 3. Detector en la ESP32 (MVP) | 20 % | 0 % | |
 | 4. UDP, índice de actividad, ntfy | 10 % | 0 % | |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~17 %** | |
+| **Total** | 100 % | **~26 %** | |
 
 ---
 
@@ -193,8 +193,8 @@ escaner_movimiento_esp32/
 │       │   └── test/        # tests en PC: compara con la referencia Python
 │       └── csi_model/       # (E5) modelo exportado con emlearn
 ├── host/                    # Python
-│   ├── csi_tools/           # esp_text/proto (decodificadores), recording (.csirec + .json), features
-│   ├── apps/                # live_view.py (ver/grabar/etiquetar/reproducir), link_stats.py; luego evaluate.py, train.py
+│   ├── csi_tools/           # esp_text/proto (decodificadores), recording (.csirec + .json), dsp (features), detector
+│   ├── apps/                # live_view.py (ver/grabar/etiquetar/detectar), link_stats.py, evaluate.py; luego train.py
 │   ├── notebooks/           # exploración, figuras, experimentos
 │   └── tests/
 ├── data/                    # grabaciones (ignoradas por git salvo data/samples/)
@@ -203,6 +203,7 @@ escaner_movimiento_esp32/
     ├── guia_flashear_placa_b.md
     ├── guia_fase0_csi.md
     ├── guia_fase1.md
+    ├── guia_fase2.md
     ├── (protocolo)          # el formato de trama está documentado en csi_proto.h y proto.py
     └── experimentos.md      # bitácora: qué se probó, resultados, conclusiones
 ```
