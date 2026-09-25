@@ -12,6 +12,21 @@
 
 ---
 
+## 0. Avance
+
+| Fase | Peso | Avance | Nota |
+|---|---|---|---|
+| 0. Preparación | 5 % | ~90 % | Placa B rescatada, router fijo, CSI real visto en el visor. Falta: grabación quieto/caminando/quieto con la tasa completa |
+| 1. Captura y visualización | 20 % | ~15 % | Visor/grabador en Python listos (texto). Falta: firmware RX con protocolo binario, firmware TX con ESP-NOW + OTA, experimentos, dataset |
+| 2. Detector en PC | 15 % | 0 % | |
+| 3. Detector en la ESP32 (MVP) | 20 % | 0 % | |
+| 4. UDP, índice de actividad, ntfy | 10 % | 0 % | |
+| 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
+| 6. Presencia quieta (experimento) | 10 % | 0 % | |
+| **Total** | 100 % | **~8 %** | |
+
+---
+
 ## 1. Objetivo
 
 Detectar movimiento humano en una habitación usando el **CSI (Channel State Information)** del WiFi, sin cámara ni sensor PIR, con dos ESP32 clásicas y un router doméstico.
