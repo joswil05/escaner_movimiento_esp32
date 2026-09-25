@@ -44,11 +44,13 @@ class Source:
                  reset: bool = True):
         self.echo = replay is None  # en vivo: mostrar en la terminal todo lo que no es CSI
         self.reset = reset
-        self.packets: collections.deque[tuple[float, CsiPacket]] = collections.deque(maxlen=HEATMAP_PACKETS)
+        # (hora de llegada, paquete, amplitud de las 52 subportadoras) — la amplitud se calcula una vez
+        self.packets: collections.deque[tuple[float, CsiPacket, np.ndarray]] = collections.deque(maxlen=HEATMAP_PACKETS)
         self.arrivals: collections.deque[float] = collections.deque(maxlen=2000)
         self.stats: CsiStats | None = None
         self.total = 0
         self.bad_lines = 0
+        self.backlog = 0  # bytes esperando en el puerto: si crece, la PC va atrasada
         self.lock = threading.Lock()
         self.running = True
         self.error: str | None = None
@@ -67,12 +69,12 @@ class Source:
         item = parse_line(line)
         if isinstance(item, CsiPacket):
             try:
-                item.amplitude  # valida el largo
+                amp = item.amplitude
             except ValueError:
                 self.bad_lines += 1
                 return
             with self.lock:
-                self.packets.append((t, item))
+                self.packets.append((t, item, amp))
                 self.arrivals.append(t)
                 self.total += 1
         elif isinstance(item, CsiStats):
@@ -102,10 +104,18 @@ class Source:
                         ser.rts = False
                     except OSError:
                         pass  # puertos sin líneas de control
+                # Leer en bloques: readline() lee byte a byte y no alcanza a ~65 KB/s en Windows
+                pending = b""
                 while self.running:
-                    raw = ser.readline()
-                    if raw:
-                        self._handle(raw.decode("ascii", errors="replace").strip(), time.time())
+                    chunk = ser.read(max(1, ser.in_waiting))
+                    if not chunk:
+                        continue
+                    self.backlog = ser.in_waiting
+                    t = time.time()
+                    lines = (pending + chunk).split(b"\n")
+                    pending = lines.pop()
+                    for raw in lines:
+                        self._handle(raw.decode("ascii", errors="replace").strip(), t)
         except Exception as exc:  # puerto ocupado, desconectado, etc.
             self.error = str(exc)
 
@@ -188,7 +198,7 @@ class Viewer(QtWidgets.QMainWindow):
         if not packets:
             return
 
-        amps = np.array([p.amplitude for _, p in packets], dtype=np.float32)
+        amps = np.array([a for _, _, a in packets], dtype=np.float32)
         heat = np.zeros((HEATMAP_PACKETS, amps.shape[1]), dtype=np.float32)
         heat[-len(amps):] = normalize_per_packet(amps)
         self.heat_img.setImage(heat, autoLevels=False, levels=(0.0, 2.0))
@@ -214,9 +224,10 @@ class Viewer(QtWidgets.QMainWindow):
         stats = self.source.stats
         dev = f" | ESP32: {stats.received_1s} paq/s, descartados {stats.dropped_total}" if stats else ""
         err = f" | ⚠ {self.source.error}" if self.source.error else ""
+        lag = f" | ⚠ PC atrasada: {self.source.backlog} bytes en espera" if self.source.backlog > 20000 else ""
         self.status.setText(
             f"{rate} paq/s | RSSI {rssi} dBm | canal {last.channel} | índice {mi:.3f} | "
-            f"total {self.source.total} | líneas malas {self.source.bad_lines}{dev}{err}"
+            f"total {self.source.total} | líneas malas {self.source.bad_lines}{dev}{lag}{err}"
         )
 
     def closeEvent(self, event) -> None:
