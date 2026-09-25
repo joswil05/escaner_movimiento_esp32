@@ -41,3 +41,20 @@
 - **Diagnóstico:** alimentada por el **pin VIN** desde la placa A (conectada a la laptop), con `EN→GND` en la placa A, funciona bien: se conecta al WiFi y envía beacons.
 - **Conclusión:** el ESP32 de la placa B está sano. El blink (~50 mA) funcionaba porque apenas consume; con WiFi (picos de 400–500 mA) la entrada USB no aguanta. Lo más probable es un diodo de entrada dañado junto al chip USB quemado, o un cargador o cable débil (pendiente de confirmar probando ese cargador con la placa A).
 - **Solución:** alimentar la placa B **por VIN** (5 V) y GND, sin pasar por su conector USB: cable USB cortado o adaptador USB a pines, con cargador o power bank. Nunca 5 V en el pin 3V3.
+
+## E1-1: Primer enlace TX → RX (placas juntas)
+
+- **Fecha:** 2026-09-25
+- **Montaje:** placas A y B a pocos centímetros; B alimentada por VIN desde A; A por USB a la laptop. `firmware/rx` en modo transmisor, `firmware/tx` v1.0.0.
+- **Resultado (captura del visor, ~37 s):** ✅ el enlace funciona.
+
+| Métrica | Valor | Lectura |
+|---|---|---|
+| Paquetes/s en la PC | ~99–100, **curva plana** | Mucho más regular que el modo router (E0-1, con ráfagas y huecos) |
+| Descartados en el RX | 0 | La cola y el envío binario alcanzan |
+| Perdidos en el aire | 92 de ~3700 (**~2.5 %**) | Los broadcast ESP-NOW no tienen reintentos: colisionan con el tráfico del canal 1. Aceptable; volver a medir a 3–4 m |
+| RSSI | −43 a −50 dBm | Normal a esta distancia (depende de la orientación de las antenas) |
+| TX | IP 192.168.1.30, `tx-1.0.0` | La información del transmisor llega por los beacons |
+| Índice de movimiento | ~0.03–0.05 en calma; picos de 0.12 y 0.21 | Responde a movimientos cercanos |
+
+**Pendiente:** alimentación propia para B y los experimentos 1–3 de `guia_fase1.md` a 3–4 m.

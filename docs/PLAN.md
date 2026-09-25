@@ -17,13 +17,13 @@
 | Fase | Peso | Avance | Nota |
 |---|---|---|---|
 | 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
-| 1. Captura y visualización | 20 % | ~50 % | Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: validar en el hardware, experimentos 1–3 (`guia_fase1.md`), dataset |
+| 1. Captura y visualización | 20 % | ~60 % | Enlace TX→RX validado en el hardware (E1-1). Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: alimentación propia del TX, experimentos 1–3 (`guia_fase1.md`), dataset |
 | 2. Detector en PC | 15 % | 0 % | |
 | 3. Detector en la ESP32 (MVP) | 20 % | 0 % | |
 | 4. UDP, índice de actividad, ntfy | 10 % | 0 % | |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~15 %** | |
+| **Total** | 100 % | **~17 %** | |
 
 ---
 
