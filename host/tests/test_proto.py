@@ -86,7 +86,7 @@ C_PROGRAM = r"""
 #include <stdio.h>
 #include <string.h>
 #include "csi_proto.h"
-int main(void) {
+int main(int argc, char **argv) {
     _Static_assert(sizeof(csi_frame_csi_t) == 32, "csi");
     _Static_assert(sizeof(csi_frame_stats_t) == 24, "stats");
     _Static_assert(sizeof(csi_tx_beacon_t) == 40, "beacon");
@@ -96,8 +96,12 @@ int main(void) {
     for (int i = 0; i < 128; i++) csi[i] = (int8_t)(i - 64);
     uint8_t out[512];
     size_t n = csi_proto_build(CSI_FRAME_CSI, &h, sizeof(h), csi, sizeof(csi), out, sizeof(out));
-    fwrite(out, 1, n, stdout);
-    return 0;
+    /* A un archivo en modo binario: en Windows, stdout agrega \r antes de cada byte 0x0A y rompe la trama. */
+    FILE *f = fopen(argv[1], "wb");
+    if (f == NULL) return 1;
+    fwrite(out, 1, n, f);
+    fclose(f);
+    return argc == 2 ? 0 : 1;
 }
 """
 
@@ -112,7 +116,9 @@ def test_c_encoder_matches_python_decoder(tmp_path):
                         str(comp / "csi_proto.c"), "-o", str(exe)], check=True, capture_output=True)
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         pytest.skip(f"sin compilador C: {exc}")
-    frame = subprocess.run([str(exe)], check=True, capture_output=True).stdout
+    out = tmp_path / "frame.bin"
+    subprocess.run([str(exe), str(out)], check=True, capture_output=True)
+    frame = out.read_bytes()
     items = StreamDecoder().feed(frame)
     assert len(items) == 1
     p = items[0]

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import faulthandler
 import sys
 import threading
 import time
@@ -131,6 +132,7 @@ class Source:
                     self._feed(chunk, t)
         except Exception as exc:  # puerto ocupado, desconectado, etc.
             self.error = str(exc)
+            print(f"⚠ Error leyendo {port}: {exc}", flush=True)
 
     def _read_replay(self, path: Path) -> None:
         t0 = None
@@ -268,6 +270,14 @@ class Viewer(QtWidgets.QMainWindow):
     # ---------- refresco ----------
 
     def refresh(self) -> None:
+        try:
+            self._refresh()
+        except Exception as exc:  # un error al dibujar no debe cerrar el visor
+            import traceback
+            traceback.print_exc()
+            self.status.setText(f"⚠ Error al dibujar: {exc}")
+
+    def _refresh(self) -> None:
         packets, arrivals = self.source.snapshot()
         now = time.time()
         if self.source.error:
@@ -337,6 +347,7 @@ def main() -> int:
     if args.record and args.replay:
         parser.error("--record solo funciona en vivo (con --port)")
 
+    faulthandler.enable()  # si el proceso se cae sin mensaje, deja un rastro en la terminal
     app = QtWidgets.QApplication(sys.argv)
     source = Source(args.port, args.baud, args.replay, args.record, reset=not args.no_reset)
     viewer = Viewer(source, str(args.replay or args.port))
