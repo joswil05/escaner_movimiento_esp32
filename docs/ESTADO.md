@@ -47,6 +47,10 @@ Mediciones reales: ~100 paquetes/s, ~0.5 % de pérdida en el aire, 87 KB de memo
    Con eso se decide cómo hacer que el mapa ubique el movimiento (opción A o B).
 4. Cuando puedas: alimentación propia para la placa B (cable USB cortado → VIN/GND), separar las placas, dibujar el cuarto en el editor y grabar los experimentos de [`guia_fase1.md`](guia_fase1.md).
 
+## Investigación
+
+Ver [`investigacion.md`](investigacion.md): qué proyectos externos sirven (ESPectre para la detección) y qué opciones hay para ubicar el movimiento sin comprar más placas.
+
 ## Guías
 
 | Guía | Para qué |
