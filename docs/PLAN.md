@@ -6,7 +6,7 @@
 > **Entorno confirmado:** Windows, ESP-IDF **v5.3.1** (Espressif-IDE + terminal "ESP-IDF 5.3 CMD"), placas ESP32 DevKit V1 de 30 pines (LED en GPIO2).
 > **Placa B rescatada:** se flasheó `blink` por UART usando la placa A como puente; el LED parpadea. ✅
 > Router: cablemódem Kaon DOCSIS 3.0 (Claro), 802.11n, WPA2. **2.4 GHz configurado: canal de control fijo en 1, ancho de banda 20 MHz**, beamforming (BFR/BFE) deshabilitado. ✅
-> Decisiones: **no se usa Home Assistant** → E2 pasa a ser notificaciones al celular (bot de Telegram) con MQTT genérico como opción secundaria. **Hay mascotas** → "mascota" es una clase real en E4/E6. El código Python lo escribe Claude; el usuario lo ejecuta.
+> Decisiones: **no se usa Home Assistant** → E2 pasa a ser notificaciones push al celular con **ntfy** (app gratuita y de código abierto, sin cuenta), con MQTT genérico como opción secundaria. **Hay mascotas** → "mascota" es una clase real en E4/E6. El código Python lo escribe Claude; el usuario lo ejecuta.
 > Placa B: ESP32-D0WD rev **v3.1**, flash 4 MB, **MAC STA `F4:2D:C9:6B:26:C0`**, heap libre sin WiFi ≈ 305 KB.
 > Tipo de proyecto: personal, sin fecha límite. Se avanza por hitos, cada uno con un criterio de "terminado" verificable.
 
@@ -70,7 +70,7 @@ Procedimiento completo, con diagnóstico previo y solución de problemas: **[`gu
 | `web` | 0/1 | `esp_http_server` con WebSocket. Publica el estado y las features a 5–10 Hz. |
 | `ping` | 0 | Solo en modo router: genera pings a tasa fija. |
 | `hist` | 1 | *(E1)* Guarda el índice de actividad por minuto en un buffer circular (24 h = 1440 valores) y hace un volcado periódico a NVS. |
-| `notify` | 0 | *(E2)* Envía alertas por Telegram con antirrebote (máx. 1 cada N minutos) y horario; MQTT opcional. |
+| `notify` | 0 | *(E2)* Envía alertas push por ntfy con antirrebote (máx. 1 cada N minutos) y horario; MQTT opcional. |
 | `slow` | 1 | *(E7)* Pipeline lento para la respiración: recibe muestras decimadas a 10 Hz y analiza ventanas de 30 s cada 2 s. |
 | Config | — | NVS: umbrales, modo, MAC del TX, WiFi, broker MQTT, destino UDP. Se edita desde la web. |
 
@@ -157,7 +157,7 @@ Como E1–E7 están dentro del alcance, estas decisiones se toman desde la fase 
 | ML (extensión) | scikit-learn; **emlearn** para exportar el modelo a C y correrlo en la ESP32 | emlearn es más simple que TFLite Micro para modelos de árboles. |
 | Web en la ESP32 | HTML + JS vanilla, gráfica en `<canvas>`, sin librerías externas, embebida en el firmware (`EMBED_FILES`) | Pesa menos de 30 KB y funciona sin internet. |
 | Datos | Grabación cruda `.bin` más un `.json` de metadatos (etiquetas, posiciones, fecha) → conversión a `.npz` | La grabación cruda permite reprocesar todo si cambia el algoritmo. |
-| Integración (extensión) | Bot de Telegram (`esp_http_client` + HTTPS); MQTT (`esp-mqtt`) opcional | |
+| Integración (extensión) | ntfy (`esp_http_client` + HTTPS); MQTT (`esp-mqtt`) opcional | |
 | Repo / CI | Git monorepo. GitHub Actions opcional: compilar firmware con la imagen `espressif/idf`, más pytest y tests en C | |
 
 **Por qué no Arduino ni MicroPython:** la configuración de CSI y el menuconfig se manejan mejor en ESP-IDF, y MicroPython no alcanza para procesar 100 paquetes por segundo.
@@ -219,7 +219,7 @@ escaner_movimiento_esp32/
 | # | Funcionalidad | Qué obtienes | Cómo se hace | Dificultad | Riesgo |
 |---|---|---|---|---|---|
 | E1 | Índice de actividad (0–100) + historial 24 h | Gráfica de "cuánto movimiento hubo" a lo largo del día, en la web | Feature V/C normalizada con la línea base, agregada por minuto en un buffer circular | ★★ | Bajo |
-| E2 | Notificaciones al celular (Telegram) + MQTT genérico opcional | Mensaje "movimiento detectado" en tu celular, con horario de activación y antirrebote | Bot de Telegram vía `esp_http_client` (HTTPS con el bundle de certificados de IDF); token en NVS, nunca en el repo. MQTT (`esp-mqtt`) solo si luego se quiere integrar con otro sistema | ★★ | Bajo |
+| E2 | Notificaciones push al celular (ntfy) + MQTT genérico opcional | Notificación "movimiento detectado" en tu celular, con horario de activación y antirrebote | `esp_http_client` hace un POST HTTPS a `ntfy.sh/<tema-secreto>` (bundle de certificados de IDF). El tema es largo y aleatorio, se guarda en NVS y nunca va al repo. MQTT (`esp-mqtt`) solo si luego se quiere integrar con otro sistema | ★★ | Bajo |
 | E3 | Streaming por WiFi (UDP) | Grabar con la placa RX lejos de la laptop, en cualquier lugar de la casa | Las mismas tramas binarias en datagramas UDP; nueva "fuente" en `csi_tools` | ★★ | Bajo (vigilar que no interfiera con la captura) |
 | E4 | Clasificador de actividades en PC | Saber *qué* pasa: vacío / caminar / movimiento sentado / ventilador… | Features de la sección 3.5 → random forest (scikit-learn), validación separada por sesión | ★★★ | Medio: depende de la cantidad y variedad de datos |
 | E5 | Clasificador en la ESP32 | Lo mismo sin PC, en la web y en MQTT | Exportar con emlearn a C (`csi_model`); verificar que PC y placa dan la misma predicción | ★★★★ | Medio |
@@ -276,9 +276,9 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 ### Fase 4: conectividad y uso diario (E1, E2, E3)
 - **E3 primero**, porque facilita todo lo que sigue: grabar sin la laptop al lado → más datos y más variados.
 - **E1:** índice de actividad y gráfica de 24 h en la web.
-- **E2:** bot de Telegram: alerta de movimiento con antirrebote, activar/desactivar desde la web, horario.
+- **E2:** alertas push con ntfy: aviso de movimiento con antirrebote, activar/desactivar desde la web, horario.
 
-**Terminado cuando:** grabas una sesión por UDP sin perder >1 % de paquetes; la web muestra el historial del día; llega la alerta a Telegram en <5 s y no hay más de una alerta por evento.
+**Terminado cuando:** grabas una sesión por UDP sin perder >1 % de paquetes; la web muestra el historial del día; llega la notificación de ntfy en <5 s y no hay más de una alerta por evento.
 
 ### Fase 5: aprendizaje automático (E4, E5, E6)
 - **Dataset ampliado:** escenarios S0–S6 en al menos 3 días distintos, con ≥30 min por clase en total.
@@ -346,6 +346,6 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 2. ~~Modelo de placa~~ → DevKit V1 de 30 pines.
 3. ~~MAC de la placa B~~ → `F4:2D:C9:6B:26:C0`.
 4. ¿Tienes acceso a la configuración del router para fijar el canal y el ancho de banda de 2.4 GHz?
-5. ~~Home Assistant~~ → no; E2 = Telegram.
+5. ~~Home Assistant~~ → no; E2 = notificaciones push con ntfy.
 6. ~~Mascota~~ → sí; clase real en E4/E6.
 7. ~~Python~~ → lo escribe Claude.
