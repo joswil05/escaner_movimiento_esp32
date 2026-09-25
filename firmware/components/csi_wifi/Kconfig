@@ -1,0 +1,13 @@
+menu "CSI WiFi"
+
+    config CSI_WIFI_SSID
+        string "Nombre de la red WiFi (SSID)"
+        default "mi_red"
+        help
+            Red de 2.4 GHz del router. TX y RX se conectan a la misma red para quedar en el mismo canal.
+
+    config CSI_WIFI_PASSWORD
+        string "Contrasena del WiFi"
+        default ""
+
+endmenu

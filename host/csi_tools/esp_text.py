@@ -35,6 +35,8 @@ class CsiPacket:
     local_timestamp: int  # microsegundos, reloj de la ESP32 (se desborda cada ~71 min)
     first_word_invalid: bool
     raw: np.ndarray        # int8/int16 tal como llegan: pares (imaginario, real)
+    tx_seq: int = -1       # secuencia del beacon del TX (-1 si no aplica)
+    rx_seq: int = -1       # secuencia 802.11 (-1 si no se conoce)
 
     @property
     def csi(self) -> np.ndarray:
@@ -61,6 +63,10 @@ class CsiStats:
     received_1s: int
     dropped_total: int
     rssi: int
+    tx_lost_total: int = 0   # beacons del TX perdidos en el aire (solo firmware rx)
+    source: str = ""         # "tx" o "router" (solo firmware rx)
+    channel: int = 0
+    free_heap: int = 0
 
 
 def parse_line(line: str) -> CsiPacket | CsiStats | None:

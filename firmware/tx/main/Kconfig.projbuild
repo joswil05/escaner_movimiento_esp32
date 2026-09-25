@@ -1,0 +1,21 @@
+menu "CSI transmisor"
+
+    config CSI_TX_HZ
+        int "Beacons por segundo"
+        range 10 200
+        default 100
+
+    config CSI_TX_LED_GPIO
+        int "GPIO del LED de estado"
+        range -1 33
+        default 2
+        help
+            Parpadeo rápido: conectando al WiFi. Un destello por segundo: enviando beacons.
+            -1 desactiva el LED.
+
+    config CSI_TX_WIFI_TIMEOUT_S
+        int "Segundos sin WiFi antes de reiniciar (y volver a la versión anterior si es una OTA nueva)"
+        range 20 600
+        default 60
+
+endmenu

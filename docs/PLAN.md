@@ -17,13 +17,13 @@
 | Fase | Peso | Avance | Nota |
 |---|---|---|---|
 | 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
-| 1. Captura y visualización | 20 % | ~15 % | Visor/grabador en Python listos (texto). Falta: firmware RX con protocolo binario, firmware TX con ESP-NOW + OTA, experimentos, dataset |
+| 1. Captura y visualización | 20 % | ~50 % | Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: validar en el hardware, experimentos 1–3 (`guia_fase1.md`), dataset |
 | 2. Detector en PC | 15 % | 0 % | |
 | 3. Detector en la ESP32 (MVP) | 20 % | 0 % | |
 | 4. UDP, índice de actividad, ntfy | 10 % | 0 % | |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~8 %** | |
+| **Total** | 100 % | **~15 %** | |
 
 ---
 
@@ -102,23 +102,20 @@ Configuración obligatoria: `CONFIG_ESP_WIFI_CSI_ENABLED=y`, `esp_wifi_set_ps(WI
 
 ### 3.3 Protocolo RX → PC (binario)
 
-Una trama por paquete CSI:
+Implementado en `firmware/components/csi_proto/include/csi_proto.h` (C) y `host/csi_tools/proto.py` (Python); un test compila el código C y verifica que Python decodifica lo mismo.
 
-| Campo | Tipo | Nota |
-|---|---|---|
-| magic | u16 | `0xC51A`, para resincronizar el flujo |
-| versión, tipo | u8, u8 | Permite cambiar el formato sin romper grabaciones viejas |
-| longitud | u16 | Largo de la carga |
-| seq_rx | u32 | Contador del RX: detecta tramas perdidas en el serial |
-| seq_tx | u32 | Secuencia del TX: detecta paquetes perdidos por el aire |
-| t_us | u64 | `esp_timer_get_time()` al recibir |
-| rssi, noise_floor | i8, i8 | |
-| rate, sig_mode, mcs, cwb, stbc, canal | u8 × 6 | Metadatos `rx_ctrl`; sirven para descartar paquetes con otra modulación |
-| csi_len | u16 | |
-| csi | i8 × csi_len | Pares (imaginario, real) tal como los entrega el chip |
-| crc16 | u16 | |
+Trama: `magic u16 = 0xC51A | versión u8 | tipo u8 | largo u16 | payload | CRC-16/CCITT u16`. **Toda** la salida del RX va en tramas, incluidos los logs; la PC se resincroniza buscando el magic y descarta lo que falla el CRC.
 
-Presupuesto de ancho de banda: 100 Hz × (~40 B de cabecera + 128–384 B de CSI) ≈ 17–42 KB/s. Cabe con holgura en **921600 baudios** en binario. Como texto no cabría (ocupa 3–4 veces más).
+| Tipo | Contenido |
+|---|---|
+| `CSI` (1) | Cabecera de 32 bytes (`rx_count`, `tx_seq` del beacon, `rx_seq` 802.11, timestamp de la ESP32, RSSI, ruido, rate, modo, MCS, ancho de banda, canal, `first_word_invalid`, MAC, largo) + CSI crudo |
+| `STATS` (2) | 1/s: paquetes en el último segundo, descartados en el RX, **beacons perdidos en el aire**, RSSI, fuente (TX/router), canal, memoria libre |
+| `LOG` (3) | Líneas de `ESP_LOG` |
+| `TX_INFO` (4) | 1/s: MAC, IP, versión y contadores del transmisor (leídos de sus beacons) |
+
+El beacon ESP-NOW del TX (40 bytes) lleva `magic "CSIT"`, secuencia, tasa, uptime, IP, fallos de envío y versión. El RX lo lee de la trama recibida en el mismo callback de CSI, así cada paquete CSI queda asociado a su número de secuencia.
+
+Presupuesto: 100 Hz × (8 + 32 + 128) B ≈ 17 KB/s: una cuarta parte del texto de la fase 0 y un 18 % de lo que permite 921600 baudios.
 
 ### 3.4 Procesamiento de señal
 
@@ -186,17 +183,18 @@ escaner_movimiento_esp32/
 ├── firmware/
 │   ├── blink/               # prueba de flasheo (placa B) — ya existe
 │   ├── csi_router_test/     # fase 0: CSI en modo router, salida de texto CSI_DATA — ya existe
-│   ├── rx/                  # proyecto ESP-IDF del receptor
+│   ├── rx/                  # receptor: CSI (TX o router) -> tramas binarias por USB — ya existe
 │   │   └── main/web/        # index.html + app.js embebidos (EMBED_FILES)
-│   ├── tx/                  # proyecto ESP-IDF del transmisor (con OTA desde v0)
+│   ├── tx/                  # transmisor: beacons ESP-NOW + OTA con rollback — ya existe
 │   └── components/
-│       ├── csi_proto/       # formato de trama compartido RX ↔ PC
+│       ├── csi_proto/       # formato de trama RX ↔ PC y beacon TX → RX (C puro) — ya existe
+│       ├── csi_wifi/        # conexión WiFi STA compartida por TX y RX — ya existe
 │       ├── csi_dsp/         # features + detector + respiración, en C99 puro (sin IDF)
 │       │   └── test/        # tests en PC: compara con la referencia Python
 │       └── csi_model/       # (E5) modelo exportado con emlearn
 ├── host/                    # Python
-│   ├── csi_tools/           # fuentes (serial/UDP/archivo), parser, DSP de referencia, features
-│   ├── apps/                # live_view.py (ya existe: ver, grabar y reproducir), evaluate.py, train.py
+│   ├── csi_tools/           # esp_text/proto (decodificadores), recording (.csirec + .json), features
+│   ├── apps/                # live_view.py (ver/grabar/etiquetar/reproducir), link_stats.py; luego evaluate.py, train.py
 │   ├── notebooks/           # exploración, figuras, experimentos
 │   └── tests/
 ├── data/                    # grabaciones (ignoradas por git salvo data/samples/)
@@ -204,7 +202,8 @@ escaner_movimiento_esp32/
     ├── PLAN.md              # este documento
     ├── guia_flashear_placa_b.md
     ├── guia_fase0_csi.md
-    ├── protocolo.md         # formato de trama
+    ├── guia_fase1.md
+    ├── (protocolo)          # el formato de trama está documentado en csi_proto.h y proto.py
     └── experimentos.md      # bitácora: qué se probó, resultados, conclusiones
 ```
 

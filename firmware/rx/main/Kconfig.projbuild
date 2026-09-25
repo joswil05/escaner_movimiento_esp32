@@ -1,0 +1,33 @@
+menu "CSI receptor"
+
+    choice CSI_RX_SOURCE
+        prompt "Fuente de CSI"
+        default CSI_RX_SOURCE_TX
+        help
+            De dónde salen los paquetes que se miden.
+
+        config CSI_RX_SOURCE_TX
+            bool "Transmisor dedicado (ESP-NOW)"
+        config CSI_RX_SOURCE_ROUTER
+            bool "Router (ping)"
+    endchoice
+
+    config CSI_RX_TX_MAC
+        string "MAC del transmisor"
+        default "F4:2D:C9:6B:26:C0"
+        depends on CSI_RX_SOURCE_TX
+        help
+            MAC WiFi (STA) de la placa transmisora, formato AA:BB:CC:DD:EE:FF.
+
+    config CSI_RX_PING_HZ
+        int "Pings por segundo al router"
+        range 10 200
+        default 100
+        depends on CSI_RX_SOURCE_ROUTER
+
+    config CSI_RX_QUEUE_LEN
+        int "Largo de la cola de paquetes CSI"
+        range 8 128
+        default 48
+
+endmenu
