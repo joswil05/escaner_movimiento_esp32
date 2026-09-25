@@ -5,6 +5,8 @@
 >
 > **Entorno confirmado:** Windows, ESP-IDF **v5.3.1** (Espressif-IDE + terminal "ESP-IDF 5.3 CMD"), placas ESP32 DevKit V1 de 30 pines (LED en GPIO2).
 > **Placa B rescatada:** se flasheó `blink` por UART usando la placa A como puente; el LED parpadea. ✅
+> Router: proveedor Claro, 802.11n (Wi-Fi 4), 2.4 GHz en **canal 1**, WPA2. Pendiente: fijar el canal y 20 MHz en la configuración del router.
+> Decisiones: **no se usa Home Assistant** → E2 pasa a ser notificaciones al celular (bot de Telegram) con MQTT genérico como opción secundaria. **Hay mascotas** → "mascota" es una clase real en E4/E6. El código Python lo escribe Claude; el usuario lo ejecuta.
 > Placa B: ESP32-D0WD rev **v3.1**, flash 4 MB, **MAC STA `F4:2D:C9:6B:26:C0`**, heap libre sin WiFi ≈ 305 KB.
 > Tipo de proyecto: personal, sin fecha límite. Se avanza por hitos, cada uno con un criterio de "terminado" verificable.
 
@@ -68,7 +70,7 @@ Procedimiento completo, con diagnóstico previo y solución de problemas: **[`gu
 | `web` | 0/1 | `esp_http_server` con WebSocket. Publica el estado y las features a 5–10 Hz. |
 | `ping` | 0 | Solo en modo router: genera pings a tasa fija. |
 | `hist` | 1 | *(E1)* Guarda el índice de actividad por minuto en un buffer circular (24 h = 1440 valores) y hace un volcado periódico a NVS. |
-| `mqtt` | 0 | *(E2)* Publica el estado y el índice; anuncia la placa a Home Assistant con MQTT Discovery. |
+| `notify` | 0 | *(E2)* Envía alertas por Telegram con antirrebote (máx. 1 cada N minutos) y horario; MQTT opcional. |
 | `slow` | 1 | *(E7)* Pipeline lento para la respiración: recibe muestras decimadas a 10 Hz y analiza ventanas de 30 s cada 2 s. |
 | Config | — | NVS: umbrales, modo, MAC del TX, WiFi, broker MQTT, destino UDP. Se edita desde la web. |
 
@@ -155,7 +157,7 @@ Como E1–E7 están dentro del alcance, estas decisiones se toman desde la fase 
 | ML (extensión) | scikit-learn; **emlearn** para exportar el modelo a C y correrlo en la ESP32 | emlearn es más simple que TFLite Micro para modelos de árboles. |
 | Web en la ESP32 | HTML + JS vanilla, gráfica en `<canvas>`, sin librerías externas, embebida en el firmware (`EMBED_FILES`) | Pesa menos de 30 KB y funciona sin internet. |
 | Datos | Grabación cruda `.bin` más un `.json` de metadatos (etiquetas, posiciones, fecha) → conversión a `.npz` | La grabación cruda permite reprocesar todo si cambia el algoritmo. |
-| Integración (extensión) | MQTT (`esp-mqtt`) → Home Assistant | |
+| Integración (extensión) | Bot de Telegram (`esp_http_client` + HTTPS); MQTT (`esp-mqtt`) opcional | |
 | Repo / CI | Git monorepo. GitHub Actions opcional: compilar firmware con la imagen `espressif/idf`, más pytest y tests en C | |
 
 **Por qué no Arduino ni MicroPython:** la configuración de CSI y el menuconfig se manejan mejor en ESP-IDF, y MicroPython no alcanza para procesar 100 paquetes por segundo.
@@ -217,11 +219,11 @@ escaner_movimiento_esp32/
 | # | Funcionalidad | Qué obtienes | Cómo se hace | Dificultad | Riesgo |
 |---|---|---|---|---|---|
 | E1 | Índice de actividad (0–100) + historial 24 h | Gráfica de "cuánto movimiento hubo" a lo largo del día, en la web | Feature V/C normalizada con la línea base, agregada por minuto en un buffer circular | ★★ | Bajo |
-| E2 | MQTT → Home Assistant | Sensor de movimiento en HA: encender luces, alertas al celular | `esp-mqtt` + MQTT Discovery (`binary_sensor` movimiento, `sensor` actividad, `sensor` estado) | ★★ | Bajo |
+| E2 | Notificaciones al celular (Telegram) + MQTT genérico opcional | Mensaje "movimiento detectado" en tu celular, con horario de activación y antirrebote | Bot de Telegram vía `esp_http_client` (HTTPS con el bundle de certificados de IDF); token en NVS, nunca en el repo. MQTT (`esp-mqtt`) solo si luego se quiere integrar con otro sistema | ★★ | Bajo |
 | E3 | Streaming por WiFi (UDP) | Grabar con la placa RX lejos de la laptop, en cualquier lugar de la casa | Las mismas tramas binarias en datagramas UDP; nueva "fuente" en `csi_tools` | ★★ | Bajo (vigilar que no interfiera con la captura) |
 | E4 | Clasificador de actividades en PC | Saber *qué* pasa: vacío / caminar / movimiento sentado / ventilador… | Features de la sección 3.5 → random forest (scikit-learn), validación separada por sesión | ★★★ | Medio: depende de la cantidad y variedad de datos |
 | E5 | Clasificador en la ESP32 | Lo mismo sin PC, en la web y en MQTT | Exportar con emlearn a C (`csi_model`); verificar que PC y placa dan la misma predicción | ★★★★ | Medio |
-| E6 | Rechazo de falsos positivos conocidos (ventilador, puerta, mascota) | Menos falsas alarmas | Ventilador: pico periódico estable en el espectro. Puerta: transitorio único y corto. Mascota: clase propia en E4. Se combinan reglas y clasificador | ★★★★ | Alto (sobre todo mascota) |
+| E6 | Rechazo de falsos positivos conocidos (ventilador, puerta, **mascota**) | Menos falsas alarmas; que la mascota no dispare alertas | Ventilador: pico periódico estable en el espectro. Puerta: transitorio único y corto. Mascota: clase propia en E4 (movimiento más bajo, cerca del suelo, energía menor). Se combinan reglas y clasificador | ★★★★ | Alto (sobre todo mascota: una mascota grande se parece a una persona) |
 | E7 | Presencia quieta (respiración) | Distinguir "persona quieta" de "cuarto vacío"; estimar respiraciones por minuto | Ventana de 30 s decimada a 10 Hz, filtro pasa‑banda de 0.1–0.6 Hz, elegir las subportadoras más periódicas, pico espectral + autocorrelación | ★★★★★ | **Alto**: se trata como experimento con criterio de éxito propio |
 
 ### Fuera de alcance
@@ -274,9 +276,9 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 ### Fase 4: conectividad y uso diario (E1, E2, E3)
 - **E3 primero**, porque facilita todo lo que sigue: grabar sin la laptop al lado → más datos y más variados.
 - **E1:** índice de actividad y gráfica de 24 h en la web.
-- **E2:** MQTT con Discovery. Probarlo con Home Assistant (o, si no tienes HA, con Mosquitto + MQTT Explorer).
+- **E2:** bot de Telegram: alerta de movimiento con antirrebote, activar/desactivar desde la web, horario.
 
-**Terminado cuando:** grabas una sesión por UDP sin perder >1 % de paquetes; la web muestra el historial del día; aparece en HA una entidad de movimiento que cambia en <2 s.
+**Terminado cuando:** grabas una sesión por UDP sin perder >1 % de paquetes; la web muestra el historial del día; llega la alerta a Telegram en <5 s y no hay más de una alerta por evento.
 
 ### Fase 5: aprendizaje automático (E4, E5, E6)
 - **Dataset ampliado:** escenarios S0–S6 en al menos 3 días distintos, con ≥30 min por clase en total.
@@ -344,6 +346,6 @@ Cada fase termina con un **criterio verificable**. No se pasa a la siguiente sin
 2. ~~Modelo de placa~~ → DevKit V1 de 30 pines.
 3. ~~MAC de la placa B~~ → `F4:2D:C9:6B:26:C0`.
 4. ¿Tienes acceso a la configuración del router para fijar el canal y el ancho de banda de 2.4 GHz?
-5. ¿Usas Home Assistant (para E2) o lo probamos con un broker MQTT genérico?
-6. ¿Tienes mascota? Define si "mascota" es una clase real en E6.
-7. ¿Te sientes cómodo con Python para la parte de la PC?
+5. ~~Home Assistant~~ → no; E2 = Telegram.
+6. ~~Mascota~~ → sí; clase real en E4/E6.
+7. ~~Python~~ → lo escribe Claude.
