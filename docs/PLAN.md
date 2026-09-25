@@ -19,11 +19,11 @@
 | 0. Preparación | 5 % | 100 % | Placa B rescatada, router fijo, CSI real grabado y analizado (`docs/experimentos.md`, E0-1) |
 | 1. Captura y visualización | 20 % | ~60 % | Enlace TX→RX validado en el hardware (E1-1). Hecho: firmware `tx` (ESP-NOW 100 Hz, OTA con rollback), firmware `rx` (tramas binarias con CRC, modo TX o router), decodificador, grabador `.csirec` con etiquetas por teclado, `link_stats.py`. Falta: alimentación propia del TX, experimentos 1–3 (`guia_fase1.md`), dataset |
 | 2. Detector en PC | 15 % | ~60 % | Hecho: preprocesado (normalización + Hampel), features V/C/bandas, detector adaptativo con histéresis integrado en el visor, `evaluate.py` con barrido de umbrales, tests (`guia_fase2.md`). Falta: ajustar y validar con grabaciones etiquetadas de dos días distintos |
-| 3. Detector en la ESP32 (MVP) | 20 % | ~55 % | Hecho: 3a `csi_dsp` en C verificado contra Python; 3b detector en el receptor + visor PC/ESP32; 3c página web de la placa (estado, **mapa de actividad E9**, índice, ajustes en NVS) (`guia_fase3.md`). Falta: probar en la placa, 3d prueba de 24 h |
+| 3. Detector en la ESP32 (MVP) | 20 % | ~65 % | Hecho y probado en la placa (E3-1): 3a `csi_dsp` en C verificado contra Python; 3b detector en el receptor (coincide con la PC); 3c página web (estado, mapa, eventos, historial, ajustes). Falta: verificar el tiempo de cálculo sin bandas, detección con placas separadas, 3d prueba de 24 h |
 | 4. UDP, índice de actividad, ntfy | 10 % | ~25 % | E9 (mapa de actividad con editor de plano) y buena parte de E1 (eventos + historial de 30 min en la placa) ya están en la web; falta la estimación cerca/lejos, historial de 24 h, E2, E3 |
 | 5. Clasificador y rechazo de falsos positivos | 20 % | 0 % | |
 | 6. Presencia quieta (experimento) | 10 % | 0 % | |
-| **Total** | 100 % | **~40 %** | |
+| **Total** | 100 % | **~42 %** | |
 
 ---
 

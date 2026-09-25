@@ -3,6 +3,7 @@
 Detección de movimiento humano usando el Channel State Information (CSI) del WiFi, sin cámara ni PIR, con dos ESP32 y un router.
 
 ## Documentación
+- [docs/ESTADO.md](docs/ESTADO.md): **estado actual y qué falta** (empezar por aquí).
 - [docs/PLAN.md](docs/PLAN.md): alcance, stack, arquitectura, fases y catálogo de funcionalidades.
 - [docs/guia_flashear_placa_b.md](docs/guia_flashear_placa_b.md): programar la ESP32 sin USB usando la otra placa como puente.
 - [docs/guia_fase0_csi.md](docs/guia_fase0_csi.md): ver CSI real en vivo (firmware + visor).
